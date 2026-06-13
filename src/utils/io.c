@@ -406,6 +406,10 @@ int summary_init(TestSummary *summary, int max_results)
         return -1;
     }
     
+    if (max_results < MAX_RESULTS) {
+        max_results = MAX_RESULTS;
+    }
+    
     summary->results = results_alloc(max_results);
     if (summary->results == NULL) {
         return -1;

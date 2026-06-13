@@ -31,6 +31,7 @@
 #define TEST_ID_BLOCK_FREQUENCY         2
 #define TEST_ID_CUMULATIVE_SUMS         3
 #define TEST_ID_RUNS                    4
+#define TEST_ID_LONGEST_RUN             5
 #define TEST_ID_LONGEST_RUN_ONES        5
 #define TEST_ID_RANK                    6
 #define TEST_ID_DFT                     7
@@ -43,6 +44,7 @@
 #define TEST_ID_SERIAL                  14
 #define TEST_ID_LINEAR_COMPLEXITY       15
 #define TEST_ID_BINARY_DERIVATE         16
+#define TEST_ID_AUTOCORRELATION         17
 #define TEST_ID_SELF_CORRELATION        17
 #define TEST_ID_POKER                   18
 #define TEST_ID_RUNS_DISTRIBUTION       19
@@ -52,7 +54,8 @@
 #define TEST_ID_BLOCK_FREQUENCY_STR         "block_frequency"
 #define TEST_ID_CUMULATIVE_SUMS_STR         "cumulative_sums"
 #define TEST_ID_RUNS_STR                    "runs"
-#define TEST_ID_LONGEST_RUN_ONES_STR        "longest_run_ones"
+#define TEST_ID_LONGEST_RUN_STR              "longest_run"
+#define TEST_ID_LONGEST_RUN_ONES_STR         "longest_run_ones"
 #define TEST_ID_RANK_STR                    "rank"
 #define TEST_ID_DFT_STR                     "dft"
 #define TEST_ID_NON_OVERLAPPING_TMPL_STR    "non_overlapping_template"
@@ -62,8 +65,9 @@
 #define TEST_ID_RANDOM_EXCURSIONS_STR       "random_excursions"
 #define TEST_ID_RANDOM_EXCURSIONS_VAR_STR   "random_excursions_variant"
 #define TEST_ID_SERIAL_STR                  "serial"
-#define TEST_ID_LINEAR_COMPLEXITY_STR       "linear_complexity"
+#define TEST_ID_LINEAR_COMPLEXITY_STR        "linear_complexity"
 #define TEST_ID_BINARY_DERIVATE_STR         "binary_derivate"
+#define TEST_ID_AUTOCORRELATION_STR         "autocorrelation"
 #define TEST_ID_SELF_CORRELATION_STR        "self_correlation"
 #define TEST_ID_POKER_STR                   "poker"
 #define TEST_ID_RUNS_DISTRIBUTION_STR       "runs_distribution"
@@ -85,24 +89,22 @@
 /* 重叠模板匹配 */
 #define DEFAULT_OVERLAPPING_M           9
 
-/* 重叠子序列检测 */
-#define DEFAULT_SERIAL_M                16
+/* 重叠子序列检测 - 国密规范 GM/T 0005-2021 要求 m=3, m=5 */
+#define DEFAULT_SERIAL_M                3
+#define SERIAL_M_3                       3
+#define SERIAL_M_5                       5
 
-/* 线性复杂度检测 */
-#define DEFAULT_LINEAR_COMPLEXITY_M     500
-
-/* 近似熵检测 */
-#define DEFAULT_APPROXIMATE_ENTROPY_M   10
+/* 扑克检测 - 国密规范 GM/T 0005-2021 要求 m=4, m=8 */
+#define DEFAULT_POKER_M                 4
+#define POKER_M_4                        4
+#define POKER_M_8                        8
+#define MAX_POKER_M                     8
 
 /* 二元推导检测 */
 #define DEFAULT_DERIVATE_ORDER          3
 
 /* 自相关检测 */
 #define DEFAULT_CORRELATION_DELAY       1
-
-/* 扑克检测 */
-#define DEFAULT_POKER_M                 8
-#define MAX_POKER_M                     8
 
 /* ============================================================================
  * 最小序列长度要求

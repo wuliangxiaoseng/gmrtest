@@ -163,17 +163,6 @@ TestStatus test_random_excursions_variant(const BitData *data, int n,
                                           TestResult *result, const TestConfig *config);
 
 /**
- * @brief 重叠子序列检测
- * @param data 比特数据
- * @param n 序列长度（比特数）
- * @param result 测试结果输出
- * @param config 测试配置 (使用 block_length)
- * @return 测试状态
- */
-TestStatus test_serial(const BitData *data, int n, 
-                       TestResult *result, const TestConfig *config);
-
-/**
  * @brief 线性复杂度检测
  * @param data 比特数据
  * @param n 序列长度（比特数）
@@ -208,14 +197,29 @@ TestStatus test_self_correlation(const BitData *data, int n,
 
 /**
  * @brief 扑克检测
+ * 国密规范 GM/T 0005-2021 要求: m=4, m=8（两个独立检测项）
  * @param data 比特数据
  * @param n 序列长度（比特数）
- * @param result 测试结果输出
- * @param config 测试配置 (使用 block_length)
- * @return 测试状态
+ * @param results 测试结果输出数组（需至少2个元素）
+ * @param max_results 最大结果数量
+ * @param config 测试配置
+ * @return 实际生成的结果数量，失败返回-1
  */
-TestStatus test_poker(const BitData *data, int n, 
-                      TestResult *result, const TestConfig *config);
+int test_poker(const BitData *data, int n, TestResult *results, int max_results,
+               const TestConfig *config);
+
+/**
+ * @brief 重叠子序列检测
+ * 国密规范 GM/T 0005-2021 要求: m=3, m=5（各返回2个p值，共4项）
+ * @param data 比特数据
+ * @param n 序列长度（比特数）
+ * @param results 测试结果输出数组（需至少4个元素）
+ * @param max_results 最大结果数量
+ * @param config 测试配置
+ * @return 实际生成的结果数量，失败返回-1
+ */
+int test_serial(const BitData *data, int n, TestResult *results, int max_results,
+               const TestConfig *config);
 
 /**
  * @brief 游程分布检测

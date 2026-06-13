@@ -160,25 +160,35 @@ typedef struct {
 } TestSummary;
 
 /**
- * @brief 测试函数指针类型
+ * @brief 测试函数类型（返回单个结果）
  */
 typedef TestStatus (*TestFunc)(const BitData *data, int n, 
                                TestResult *result, const TestConfig *config);
 
 /**
- * @brief 测试项描述
+ * @brief 测试函数类型（返回多个结果）
+ */
+typedef int (*TestMultiFunc)(const BitData *data, int n, 
+                             TestResult *results, int max_results,
+                             const TestConfig *config);
+
+/**
+ * @brief 测试项定义
  */
 typedef struct {
-    const char *id;         /**< 测试ID */
-    const char *name;       /**< 测试名称 */
-    const char *desc;       /**< 测试描述 */
-    TestFunc func;          /**< 测试函数指针 */
-    int min_length;         /**< 最小序列长度要求 */
+    const char *id;           /**< 测试唯一标识 */
+    const char *name;         /**< 测试名称（中文） */
+    const char *description;  /**< 测试描述 */
+    TestFunc func;            /**< 测试函数（单结果） */
+    TestMultiFunc multi_func; /**< 测试函数（多结果，NULL表示单结果） */
+    int min_length;           /**< 最小序列长度要求 */
 } TestItem;
 
 /* ============================================================================
- * 辅助宏定义
+ * 常量定义
  * ============================================================================ */
+
+#define MAX_RESULTS                     64  /**< 最大测试结果数量 */
 
 #define GMRTEST_VERSION_MAJOR 1
 #define GMRTEST_VERSION_MINOR 0

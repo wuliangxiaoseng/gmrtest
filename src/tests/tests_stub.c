@@ -23,22 +23,6 @@ TestStatus test_cumulative_sums(const BitData *data, int n,
     return TEST_SUCCESS;
 }
 
-TestStatus test_runs(const BitData *data, int n, 
-                     TestResult *result, const TestConfig *config)
-{
-    (void)data;
-    (void)config;
-    if (result == NULL || n <= 0) return TEST_ERROR;
-    result->id = TEST_ID_RUNS_STR;
-    result->name = "游程总数检测";
-    result->p_value = 0.5;
-    result->q_value = 0.5;
-    result->stat_value = 0.0;
-    result->status = TEST_SUCCESS;
-    result->message = "待实现";
-    return TEST_SUCCESS;
-}
-
 TestStatus test_longest_run_ones(const BitData *data, int n, 
                                  TestResult *result, const TestConfig *config)
 {
@@ -183,22 +167,6 @@ TestStatus test_random_excursions_variant(const BitData *data, int n,
     return TEST_SUCCESS;
 }
 
-TestStatus test_serial(const BitData *data, int n, 
-                       TestResult *result, const TestConfig *config)
-{
-    (void)data;
-    (void)config;
-    if (result == NULL || n <= 0) return TEST_ERROR;
-    result->id = TEST_ID_SERIAL_STR;
-    result->name = "重叠子序列检测";
-    result->p_value = 0.5;
-    result->q_value = 0.5;
-    result->stat_value = 0.0;
-    result->status = TEST_SUCCESS;
-    result->message = "待实现";
-    return TEST_SUCCESS;
-}
-
 TestStatus test_linear_complexity(const BitData *data, int n, 
                                   TestResult *result, const TestConfig *config)
 {
@@ -239,38 +207,6 @@ TestStatus test_self_correlation(const BitData *data, int n,
     if (result == NULL || n <= 0) return TEST_ERROR;
     result->id = TEST_ID_SELF_CORRELATION_STR;
     result->name = "自相关检测";
-    result->p_value = 0.5;
-    result->q_value = 0.5;
-    result->stat_value = 0.0;
-    result->status = TEST_SUCCESS;
-    result->message = "待实现";
-    return TEST_SUCCESS;
-}
-
-TestStatus test_poker(const BitData *data, int n, 
-                      TestResult *result, const TestConfig *config)
-{
-    (void)data;
-    (void)config;
-    if (result == NULL || n <= 0) return TEST_ERROR;
-    result->id = TEST_ID_POKER_STR;
-    result->name = "扑克检测";
-    result->p_value = 0.5;
-    result->q_value = 0.5;
-    result->stat_value = 0.0;
-    result->status = TEST_SUCCESS;
-    result->message = "待实现";
-    return TEST_SUCCESS;
-}
-
-TestStatus test_runs_distribution(const BitData *data, int n, 
-                                  TestResult *result, const TestConfig *config)
-{
-    (void)data;
-    (void)config;
-    if (result == NULL || n <= 0) return TEST_ERROR;
-    result->id = TEST_ID_RUNS_DISTRIBUTION_STR;
-    result->name = "游程分布检测";
     result->p_value = 0.5;
     result->q_value = 0.5;
     result->stat_value = 0.0;
