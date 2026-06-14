@@ -49,6 +49,7 @@ SRCS_TESTS  = $(SRC_DIR)/tests/frequency.c \
               $(SRC_DIR)/tests/runs.c \
               $(SRC_DIR)/tests/serial.c \
               $(SRC_DIR)/tests/runs_distribution.c \
+              $(SRC_DIR)/tests/longest_run.c \
               $(SRC_DIR)/tests/tests_stub.c
 
 SRCS_UTILS  = $(SRC_DIR)/utils/math.c \

@@ -23,22 +23,6 @@ TestStatus test_cumulative_sums(const BitData *data, int n,
     return TEST_SUCCESS;
 }
 
-TestStatus test_longest_run_ones(const BitData *data, int n, 
-                                 TestResult *result, const TestConfig *config)
-{
-    (void)data;
-    (void)config;
-    if (result == NULL || n <= 0) return TEST_ERROR;
-    result->id = TEST_ID_LONGEST_RUN_ONES_STR;
-    result->name = "最长1游程检测";
-    result->p_value = 0.5;
-    result->q_value = 0.5;
-    result->stat_value = 0.0;
-    result->status = TEST_SUCCESS;
-    result->message = "待实现";
-    return TEST_SUCCESS;
-}
-
 TestStatus test_rank(const BitData *data, int n, 
                      TestResult *result, const TestConfig *config)
 {

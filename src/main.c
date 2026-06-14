@@ -71,7 +71,7 @@ typedef struct {
     int quiet;
     
     /* 测试项启用状态 */
-    int test_enabled[30];
+    int test_enabled[50];
 } CliOptions;
 
 /* ============================================================================
@@ -614,7 +614,7 @@ static int run_tests(const CliOptions *opts)
     int ret = EXIT_SUCCESS;
     const char **test_ids = NULL;
     int test_count = 0;
-    const char *enabled_tests[30];
+    const char *enabled_tests[50];
     int i;
 
     /* 初始化配置 */

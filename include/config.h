@@ -56,6 +56,7 @@
 #define TEST_ID_RUNS_STR                    "runs"
 #define TEST_ID_LONGEST_RUN_STR              "longest_run"
 #define TEST_ID_LONGEST_RUN_ONES_STR         "longest_run_ones"
+#define TEST_ID_LONGEST_RUN_ZEROS_STR        "longest_run_zeros"
 #define TEST_ID_RANK_STR                    "rank"
 #define TEST_ID_DFT_STR                     "dft"
 #define TEST_ID_NON_OVERLAPPING_TMPL_STR    "non_overlapping_template"
@@ -73,7 +74,7 @@
 #define TEST_ID_RUNS_DISTRIBUTION_STR       "runs_distribution"
 
 /** 测试总数 */
-#define TEST_COUNT                      19
+#define TEST_COUNT                      20
 
 /* ============================================================================
  * 默认参数配置

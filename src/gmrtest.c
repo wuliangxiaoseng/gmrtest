@@ -20,6 +20,7 @@ static TestItem all_tests[TEST_COUNT] = {
     {TEST_ID_CUMULATIVE_SUMS_STR,        "累加和检测",           "检测累积和的随机游走",       test_cumulative_sums,        NULL,                        MIN_LENGTH_CUMULATIVE_SUMS},
     {TEST_ID_RUNS_STR,                   "游程总数检测",         "检测游程数量分布",          test_runs,                   NULL,                        MIN_LENGTH_RUNS},
     {TEST_ID_LONGEST_RUN_ONES_STR,       "最长1游程检测",        "检测最长连续1的长度",       test_longest_run_ones,       NULL,                        MIN_LENGTH_LONGEST_RUN_ONES},
+    {TEST_ID_LONGEST_RUN_ZEROS_STR,       "最长0游程检测",        "检测最长连续0的长度",       test_longest_run_zeros,      NULL,                        MIN_LENGTH_LONGEST_RUN_ONES},
     {TEST_ID_RANK_STR,                   "矩阵秩检测",           "检测矩阵秩的分布",          test_rank,                   NULL,                        MIN_LENGTH_RANK},
     {TEST_ID_DFT_STR,                    "离散傅立叶检测",       "通过FFT检测周期性",         test_dft,                    NULL,                        MIN_LENGTH_DFT},
     {TEST_ID_NON_OVERLAPPING_TMPL_STR,   "非重叠模板匹配",       "检测非重叠模板出现频率",    test_non_overlapping_template, NULL,                    MIN_LENGTH_NON_OVERLAPPING},
@@ -197,7 +198,12 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
             test = get_test_by_id(TEST_ID_CUMULATIVE_SUMS_STR);
         } else if (strncmp(test_id, "longest_run-m=", 14) == 0) {
             /* 块内最大游程检测 */
-            test = get_test_by_id(TEST_ID_LONGEST_RUN_STR);
+            const char *param = test_id + 14;
+            if (strcmp(param, "10000,ones") == 0) {
+                test = get_test_by_id(TEST_ID_LONGEST_RUN_ONES_STR);
+            } else if (strcmp(param, "10000,zeros") == 0) {
+                test = get_test_by_id("longest_run_zeros");
+            }
         } else if (strncmp(test_id, "approximate_entropy-m=", 21) == 0) {
             /* 近似熵检测 */
             test = get_test_by_id(TEST_ID_APPROXIMATE_ENTROPY_STR);

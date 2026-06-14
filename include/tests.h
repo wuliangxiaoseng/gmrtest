@@ -65,13 +65,26 @@ TestStatus test_runs(const BitData *data, int n,
 
 /**
  * @brief 块内最长1游程检测
+ * 国密规范 GM/T 0005-2021: m=10000
  * @param data 比特数据
  * @param n 序列长度（比特数）
  * @param result 测试结果输出
- * @param config 测试配置
+ * @param config 测试配置 (使用 block_length)
  * @return 测试状态
  */
 TestStatus test_longest_run_ones(const BitData *data, int n, 
+                                 TestResult *result, const TestConfig *config);
+
+/**
+ * @brief 块内最长0游程检测
+ * 国密规范 GM/T 0005-2021: m=10000（2021版新增）
+ * @param data 比特数据
+ * @param n 序列长度（比特数）
+ * @param result 测试结果输出
+ * @param config 测试配置 (使用 block_length)
+ * @return 测试状态
+ */
+TestStatus test_longest_run_zeros(const BitData *data, int n, 
                                  TestResult *result, const TestConfig *config);
 
 /**
