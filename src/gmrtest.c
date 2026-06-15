@@ -244,6 +244,7 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
         const char *test_id = test_ids[i];
         const TestItem *test = NULL;
         int sub_index = -1;  /* 多结果测试的子索引 */
+        int sub_index2 = -1; /* serial 双 P 值时使用的第二个子索引 */
 
         /* 仅 poker / serial 仍使用 multi_func + sub_index 派发 */
         if (strncmp(test_id, "poker-m=", 8) == 0) {
@@ -257,10 +258,23 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
         } else if (strncmp(test_id, "serial-m=", 9) == 0) {
             const char *param = test_id + 9;
             test = get_test_by_id(TEST_ID_SERIAL_STR);
-            if (strcmp(param, "3") == 0) {
-                sub_index = 0;  /* m=3 P1 */
+            /* 细粒度 ID：serial-m=3,p1 / serial-m=3,p2 / serial-m=5,p1 / serial-m=5,p2 */
+            if (strcmp(param, "3,p1") == 0) {
+                sub_index = 0;
+            } else if (strcmp(param, "3,p2") == 0) {
+                sub_index = 1;
+            } else if (strcmp(param, "5,p1") == 0) {
+                sub_index = 2;
+            } else if (strcmp(param, "5,p2") == 0) {
+                sub_index = 3;
+            } else if (strcmp(param, "3") == 0) {
+                /* GM/T 0005-2021 规范要求 m=3 输出双 P 值 */
+                sub_index = 0;
+                sub_index2 = 1;
             } else if (strcmp(param, "5") == 0) {
-                sub_index = 2;  /* m=5 P1 */
+                /* GM/T 0005-2021 规范要求 m=5 输出双 P 值 */
+                sub_index = 2;
+                sub_index2 = 3;
             }
         } else {
             /* 其余完整 ID 均直接通过 get_test_by_id 命中 */
@@ -295,6 +309,24 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
                 }
                 result_idx++;
                 summary->total_tests++;
+
+                /* serial 双 P 值：再追加 sub_index2 对应结果 */
+                if (sub_index2 >= 0 && sub_index2 < count && result_idx < MAX_RESULTS) {
+                    summary->results[result_idx] = temp_results[sub_index2];
+                    switch (temp_results[sub_index2].status) {
+                        case TEST_SUCCESS:
+                            summary->passed_tests++;
+                            break;
+                        case TEST_FAILURE:
+                            summary->failed_tests++;
+                            break;
+                        case TEST_ERROR:
+                            summary->error_tests++;
+                            break;
+                    }
+                    result_idx++;
+                    summary->total_tests++;
+                }
             } else if (sub_index < 0) {
                 /* 返回所有结果 */
                 for (int j = 0; j < count && result_idx < MAX_RESULTS; j++) {

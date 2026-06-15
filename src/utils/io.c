@@ -294,57 +294,123 @@ int output_json(FILE *fp, const TestSummary *summary, const char *filename)
 /**
  * @brief 将测试结果输出为文本格式
  */
+/*
+ * 计算 UTF-8 字符串的显示宽度（终端列数）
+ * - ASCII（首字节 < 0x80）: 1 列
+ * - 中日韩等 UTF-8 多字节字符（首字节 >= 0xC0）: 2 列
+ */
+static int display_width(const char *s)
+{
+    int width = 0;
+    if (s == NULL) return 0;
+    while (*s) {
+        unsigned char c = (unsigned char)*s;
+        if (c < 0x80) {
+            width += 1;
+            s += 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            /* 2 字节 UTF-8（一般为拉丁扩展，按 1 列计） */
+            width += 1;
+            s += 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            /* 3 字节 UTF-8（中日韩范围，按 2 列计） */
+            width += 2;
+            s += 3;
+        } else if ((c & 0xF8) == 0xF0) {
+            /* 4 字节 UTF-8（按 2 列计） */
+            width += 2;
+            s += 4;
+        } else {
+            /* 非法字节，跳过 */
+            s += 1;
+        }
+    }
+    return width;
+}
+
+/* 输出字符串并按目标显示宽度右侧填充空格 */
+static void print_padded(FILE *fp, const char *s, int target_width)
+{
+    int w;
+    if (s == NULL) s = "";
+    fprintf(fp, "%s", s);
+    w = display_width(s);
+    while (w < target_width) {
+        fputc(' ', fp);
+        w++;
+    }
+}
+
 int output_text(FILE *fp, const TestSummary *summary)
 {
     int i;
-    
+    /* 列宽（按显示宽度计） */
+    const int W_NAME = 32;
+    const int W_PVAL = 12;
+    const int W_QVAL = 12;
+    const int W_STAT = 16;
+    const int W_RESULT = 6;
+    char numbuf[64];
+
     if (fp == NULL || summary == NULL) {
         return -1;
     }
-    
+
     fprintf(fp, "\n");
-    fprintf(fp, "===========================================================================\n");
-    fprintf(fp, "                         测试结果汇总                                     \n");
-    fprintf(fp, "===========================================================================\n");
+    fprintf(fp, "==========================================================================================\n");
+    fprintf(fp, "                                  测试结果汇总                                            \n");
+    fprintf(fp, "==========================================================================================\n");
     fprintf(fp, "\n");
-    fprintf(fp, "%-25s %-12s %-12s %-12s %-8s\n", "测试名称", "P值", "Q值", "统计量", "结果");
-    fprintf(fp, "---------------------------------------------------------------------------\n");
-    
+    print_padded(fp, "测试名称",  W_NAME);
+    print_padded(fp, "P值",       W_PVAL);
+    print_padded(fp, "Q值",       W_QVAL);
+    print_padded(fp, "统计量",    W_STAT);
+    print_padded(fp, "结果",      W_RESULT);
+    fprintf(fp, "\n");
+    fprintf(fp, "------------------------------------------------------------------------------------------\n");
+
     for (i = 0; i < summary->results_count; i++) {
         const TestResult *r = &summary->results[i];
         const char *status_str;
-        
+
         switch (r->status) {
             case TEST_SUCCESS: status_str = "通过"; break;
             case TEST_FAILURE: status_str = "失败"; break;
             case TEST_ERROR:   status_str = "错误"; break;
             default:           status_str = "未知"; break;
         }
-        
-        fprintf(fp, "%-25s %-12.6f %-12.6f %-12.6f %-8s\n", 
-                r->name ? r->name : "unknown",
-                r->p_value, 
-                r->q_value,
-                r->stat_value, 
-                status_str);
+
+        print_padded(fp, r->name ? r->name : "unknown", W_NAME);
+
+        snprintf(numbuf, sizeof(numbuf), "%.6f", r->p_value);
+        print_padded(fp, numbuf, W_PVAL);
+
+        snprintf(numbuf, sizeof(numbuf), "%.6f", r->q_value);
+        print_padded(fp, numbuf, W_QVAL);
+
+        snprintf(numbuf, sizeof(numbuf), "%.6f", r->stat_value);
+        print_padded(fp, numbuf, W_STAT);
+
+        print_padded(fp, status_str, W_RESULT);
+        fprintf(fp, "\n");
     }
-    
-    fprintf(fp, "---------------------------------------------------------------------------\n");
+
+    fprintf(fp, "------------------------------------------------------------------------------------------\n");
     fprintf(fp, "\n");
     fprintf(fp, "总计: %d 项测试\n", summary->total_tests);
     fprintf(fp, "  通过: %d\n", summary->passed_tests);
     fprintf(fp, "  失败: %d\n", summary->failed_tests);
     fprintf(fp, "  错误: %d\n", summary->error_tests);
     fprintf(fp, "\n");
-    
+
     if (summary->failed_tests == 0 && summary->error_tests == 0) {
         fprintf(fp, "结论: 所有测试通过，序列具有随机性\n");
     } else {
         fprintf(fp, "结论: 存在失败或错误的测试，序列可能不满足随机性要求\n");
     }
-    
-    fprintf(fp, "===========================================================================\n");
-    
+
+    fprintf(fp, "==========================================================================================\n");
+
     return 0;
 }
 
