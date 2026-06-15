@@ -255,9 +255,15 @@ int main(void)
 - 国密随机数检测规范
 - [NIST_TESTS_ANALYSIS.md](NIST_TESTS_ANALYSIS.md) - 算法详细分析文档
 
+## 作者
+
+[wuliangxiaoseng](https://github.com/wuliangxiaoseng)
+
 ## 许可证
 
-MIT License
+本项目基于 [MIT License](LICENSE) 开源协议发布。
+
+Copyright (c) 2026 wuliangxiaoseng
 
 ## 贡献
 
