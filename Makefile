@@ -24,6 +24,16 @@ ifdef BIT_PACKING
     TARGET_SUFFIX := _packed
 endif
 
+# 多线程模式 (MULTI_THREAD=1)
+# 默认不启用，串行执行所有检测项
+# 启用后：使用 pthread 并行调度多个测试项，显著加速大数据量场景
+# 线程数：运行时通过环境变量 GMRTEST_THREADS 指定，否则使用 CPU 核心数
+ifdef MULTI_THREAD
+    CFLAGS  += -DUSE_PTHREAD=1
+    LDFLAGS += -lpthread
+    TARGET_SUFFIX := $(TARGET_SUFFIX)_mt
+endif
+
 # ============================================================================
 # 目录配置
 # ============================================================================
@@ -63,7 +73,8 @@ SRCS_TESTS  = $(SRC_DIR)/tests/frequency.c \
 SRCS_UTILS  = $(SRC_DIR)/utils/math.c \
               $(SRC_DIR)/utils/io.c \
               $(SRC_DIR)/utils/matrix.c \
-              $(SRC_DIR)/utils/fft.c
+              $(SRC_DIR)/utils/fft.c \
+              $(SRC_DIR)/utils/thread_pool.c
 
 SRCS        = $(SRCS_MAIN) $(SRCS_TESTS) $(SRCS_UTILS)
 
@@ -176,6 +187,7 @@ help:
 	@echo "  CFLAGS       - 编译选项"
 	@echo "  DEBUG=1      - 启用调试模式"
 	@echo "  BIT_PACKING=1 - 启用位压缩模式"
+	@echo "  MULTI_THREAD=1 - 启用多线程并行执行测试项 (依赖 pthread)"
 	@echo ""
 	@echo "存储模式说明:"
 	@echo "  字节/比特模式 (默认): 每个比特占用1字节，访问速度快，兼容NIST原始实现"
@@ -184,6 +196,7 @@ help:
 	@echo "示例:"
 	@echo "  make              # 构建项目 (字节/比特模式)"
 	@echo "  make pack         # 位压缩模式构建"
+	@echo "  make MULTI_THREAD=1 # 多线程并行构建"
 	@echo "  make DEBUG=1      # 调试模式构建"
 	@echo "  make clean        # 清理"
 	@echo "  sudo make install # 安装"

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <getopt.h>
 #include "gmrtest.h"
+#include "thread_pool.h"
 
 /* ============================================================================
  * 命令行选项定义
@@ -649,6 +650,12 @@ static int run_tests(const CliOptions *opts)
 
     if (!opts->quiet) {
         fprintf(stderr, "序列长度: %d 比特\n", n);
+        if (gmrtest_multithread_enabled()) {
+            fprintf(stderr, "执行模式: 多线程并行 (线程数=%d)\n",
+                    gmrtest_recommended_threads());
+        } else {
+            fprintf(stderr, "执行模式: 单线程串行\n");
+        }
     }
 
     /* 初始化结果汇总 */

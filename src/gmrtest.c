@@ -9,6 +9,51 @@
 #include <string.h>
 #include "gmrtest.h"
 #include "tests.h"
+#include "thread_pool.h"
+
+/* ============================================================================
+ * 并行执行内部数据结构
+ * ============================================================================ */
+
+typedef struct {
+    const TestItem *test;
+    TestResult      results[4];
+    int             count;
+    int             valid;
+} GmrSlot;
+
+typedef struct {
+    GmrSlot          *slots;
+    const BitData    *data;
+    int               n;
+    const TestConfig *config;
+} GmrRunCtx;
+
+static void gmr_run_one_slot(void *arg, int task_index)
+{
+    GmrRunCtx *ctx = (GmrRunCtx *)arg;
+    GmrSlot   *slot = &ctx->slots[task_index];
+    const TestItem *test = slot->test;
+
+    if (!slot->valid || test == NULL) return;
+
+    if (test->multi_func != NULL) {
+        int count = test->multi_func(ctx->data, ctx->n, slot->results, 4, ctx->config);
+        slot->count = count > 0 ? count : 0;
+    } else {
+        TestResult *r = &slot->results[0];
+        r->id = test->id;
+        r->name = test->name;
+        r->p_value = 0.0;
+        r->q_value = 0.0;
+        r->stat_value = 0.0;
+        r->status = TEST_ERROR;
+        r->message = NULL;
+        TestStatus st = test->func(ctx->data, ctx->n, r, ctx->config);
+        r->status = st;
+        slot->count = 1;
+    }
+}
 
 /* ============================================================================
  * 测试项定义
@@ -225,26 +270,46 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
 {
     TestConfig default_config;
     int i, result_idx = 0;
-    
+
     if (test_ids == NULL || data == NULL || summary == NULL || n <= 0) {
         return -1;
     }
-    
+
     if (config == NULL) {
         gmrtest_default_config(&default_config);
         config = &default_config;
     }
-    
+
     summary->total_tests = 0;
     summary->passed_tests = 0;
     summary->failed_tests = 0;
     summary->error_tests = 0;
-    
+
+    /* ----------------------------------------------------------------
+     * 阶段 1：解析每个 test_id，得到（TestItem*, sub_index, sub_index2）
+     *         同时构建去重的 TestItem 任务表（用于并行执行）
+     * ---------------------------------------------------------------- */
+    typedef struct {
+        const TestItem *test;
+        int sub_index;
+        int sub_index2;
+        int task_slot;
+    } IdEntry;
+
+    IdEntry *entries = (IdEntry *)calloc((size_t)test_count, sizeof(IdEntry));
+    GmrSlot *unique_tests = (GmrSlot *)calloc((size_t)test_count, sizeof(GmrSlot));
+    if (entries == NULL || unique_tests == NULL) {
+        free(entries);
+        free(unique_tests);
+        return -1;
+    }
+    int unique_count = 0;
+
     for (i = 0; i < test_count; i++) {
         const char *test_id = test_ids[i];
         const TestItem *test = NULL;
-        int sub_index = -1;  /* 多结果测试的子索引 */
-        int sub_index2 = -1; /* serial 双 P 值时使用的第二个子索引 */
+        int sub_index = -1;
+        int sub_index2 = -1;
 
         /* 仅 poker / serial 仍使用 multi_func + sub_index 派发 */
         if (strncmp(test_id, "poker-m=", 8) == 0) {
@@ -281,48 +346,78 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
             test = get_test_by_id(test_id);
         }
 
-        if (test == NULL) {
+        entries[i].test = test;
+        entries[i].sub_index = sub_index;
+        entries[i].sub_index2 = sub_index2;
+        entries[i].task_slot = -1;
+
+        if (test == NULL || n < test->min_length) {
             continue;
         }
 
-        if (n < test->min_length) {
+        /* 在 unique_tests 中查找/插入 */
+        int slot = -1;
+        for (int u = 0; u < unique_count; u++) {
+            if (unique_tests[u].test == test) {
+                slot = u;
+                break;
+            }
+        }
+        if (slot < 0) {
+            slot = unique_count++;
+            unique_tests[slot].test = test;
+            unique_tests[slot].count = 0;
+            unique_tests[slot].valid = 1;  /* 已通过 min_length 检查，执行 */
+        }
+        entries[i].task_slot = slot;
+    }
+
+    /* ----------------------------------------------------------------
+     * 阶段 2：并行执行所有去重后的 TestItem 任务
+     * ---------------------------------------------------------------- */
+    GmrRunCtx ctx;
+    ctx.slots = unique_tests;
+    ctx.data = data;
+    ctx.n = n;
+    ctx.config = config;
+
+    parallel_for(gmr_run_one_slot, &ctx, unique_count,
+                 gmrtest_recommended_threads());
+
+    /* ----------------------------------------------------------------
+     * 阶段 3：按 test_ids 顺序串行汇总结果到 summary
+     * ---------------------------------------------------------------- */
+    for (i = 0; i < test_count; i++) {
+        const TestItem *test = entries[i].test;
+        int sub_index = entries[i].sub_index;
+        int sub_index2 = entries[i].sub_index2;
+        int slot = entries[i].task_slot;
+
+        if (test == NULL || slot < 0 || !unique_tests[slot].valid) {
             continue;
         }
-        
+        if (result_idx >= MAX_RESULTS) break;
+
         if (test->multi_func != NULL) {
-            TestResult temp_results[4];
-            int count = test->multi_func(data, n, temp_results, 4, config);
-            
+            int count = unique_tests[slot].count;
+
             if (sub_index >= 0 && sub_index < count) {
-                /* 返回指定子索引的结果 */
-                summary->results[result_idx] = temp_results[sub_index];
-                switch (temp_results[sub_index].status) {
-                    case TEST_SUCCESS:
-                        summary->passed_tests++;
-                        break;
-                    case TEST_FAILURE:
-                        summary->failed_tests++;
-                        break;
-                    case TEST_ERROR:
-                        summary->error_tests++;
-                        break;
+                summary->results[result_idx] = unique_tests[slot].results[sub_index];
+                switch (unique_tests[slot].results[sub_index].status) {
+                    case TEST_SUCCESS: summary->passed_tests++; break;
+                    case TEST_FAILURE: summary->failed_tests++; break;
+                    case TEST_ERROR:   summary->error_tests++;  break;
                 }
                 result_idx++;
                 summary->total_tests++;
 
-                /* serial 双 P 值：再追加 sub_index2 对应结果 */
+                /* serial 双 P 值 */
                 if (sub_index2 >= 0 && sub_index2 < count && result_idx < MAX_RESULTS) {
-                    summary->results[result_idx] = temp_results[sub_index2];
-                    switch (temp_results[sub_index2].status) {
-                        case TEST_SUCCESS:
-                            summary->passed_tests++;
-                            break;
-                        case TEST_FAILURE:
-                            summary->failed_tests++;
-                            break;
-                        case TEST_ERROR:
-                            summary->error_tests++;
-                            break;
+                    summary->results[result_idx] = unique_tests[slot].results[sub_index2];
+                    switch (unique_tests[slot].results[sub_index2].status) {
+                        case TEST_SUCCESS: summary->passed_tests++; break;
+                        case TEST_FAILURE: summary->failed_tests++; break;
+                        case TEST_ERROR:   summary->error_tests++;  break;
                     }
                     result_idx++;
                     summary->total_tests++;
@@ -330,51 +425,32 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
             } else if (sub_index < 0) {
                 /* 返回所有结果 */
                 for (int j = 0; j < count && result_idx < MAX_RESULTS; j++) {
-                    summary->results[result_idx] = temp_results[j];
-                    switch (temp_results[j].status) {
-                        case TEST_SUCCESS:
-                            summary->passed_tests++;
-                            break;
-                        case TEST_FAILURE:
-                            summary->failed_tests++;
-                            break;
-                        case TEST_ERROR:
-                            summary->error_tests++;
-                            break;
+                    summary->results[result_idx] = unique_tests[slot].results[j];
+                    switch (unique_tests[slot].results[j].status) {
+                        case TEST_SUCCESS: summary->passed_tests++; break;
+                        case TEST_FAILURE: summary->failed_tests++; break;
+                        case TEST_ERROR:   summary->error_tests++;  break;
                     }
                     result_idx++;
                 }
                 summary->total_tests += count;
             }
         } else {
-            TestResult *result = &summary->results[result_idx];
-            result->id = test->id;
-            result->name = test->name;
-            result->p_value = 0.0;
-            result->q_value = 0.0;
-            result->stat_value = 0.0;
-            result->status = TEST_ERROR;
-            result->message = NULL;
-            
-            TestStatus status = test->func(data, n, result, config);
-            result->status = status;
-            
-            switch (status) {
-                case TEST_SUCCESS:
-                    summary->passed_tests++;
-                    break;
-                case TEST_FAILURE:
-                    summary->failed_tests++;
-                    break;
-                case TEST_ERROR:
-                    summary->error_tests++;
-                    break;
+            /* 单结果测试 */
+            summary->results[result_idx] = unique_tests[slot].results[0];
+            switch (unique_tests[slot].results[0].status) {
+                case TEST_SUCCESS: summary->passed_tests++; break;
+                case TEST_FAILURE: summary->failed_tests++; break;
+                case TEST_ERROR:   summary->error_tests++;  break;
             }
             result_idx++;
             summary->total_tests++;
         }
     }
-    
+
+    free(entries);
+    free(unique_tests);
+
     summary->results_count = result_idx;
     return 0;
 }
@@ -399,72 +475,62 @@ int gmrtest_run_all(const BitData *data, int n,
     summary->failed_tests = 0;
     summary->error_tests = 0;
     result_idx = 0;
-    
+
+    /* ----------------------------------------------------------------
+     * 阶段 1：为每个 TestItem 分配独立的临时槽，并行执行
+     * ---------------------------------------------------------------- */
+    GmrSlot *slots = (GmrSlot *)calloc(TEST_COUNT, sizeof(GmrSlot));
+    if (slots == NULL) {
+        return -1;
+    }
     for (i = 0; i < TEST_COUNT; i++) {
-        const TestItem *test = &all_tests[i];
-        
-        /* 检查序列长度 */
-        if (n < test->min_length) {
-            /* 跳过长度不足的测试 */
-            continue;
-        }
-        
-        /* 支持单结果和多结果测试 */
+        slots[i].test = &all_tests[i];
+        slots[i].count = 0;
+        slots[i].valid = (n >= all_tests[i].min_length) ? 1 : 0;
+    }
+
+    GmrRunCtx ctx;
+    ctx.slots = slots;
+    ctx.data = data;
+    ctx.n = n;
+    ctx.config = config;
+
+    parallel_for(gmr_run_one_slot, &ctx, TEST_COUNT,
+                 gmrtest_recommended_threads());
+
+    /* ----------------------------------------------------------------
+     * 阶段 2：按注册表顺序串行汇总结果
+     * ---------------------------------------------------------------- */
+    for (i = 0; i < TEST_COUNT; i++) {
+        const TestItem *test = slots[i].test;
+        if (!slots[i].valid) continue;
+
         if (test->multi_func != NULL) {
-            /* 多结果测试：扑克检测(m=4,m=8), 重叠子序列检测(m=3,m=5各2个p值) */
-            TestResult temp_results[4];  /* 最多4个结果 */
-            int count = test->multi_func(data, n, temp_results, 4, config);
-            
+            int count = slots[i].count;
             for (int j = 0; j < count && result_idx < MAX_RESULTS; j++) {
-                summary->results[result_idx] = temp_results[j];
-                switch (temp_results[j].status) {
-                    case TEST_SUCCESS:
-                        summary->passed_tests++;
-                        break;
-                    case TEST_FAILURE:
-                        summary->failed_tests++;
-                        break;
-                    case TEST_ERROR:
-                        summary->error_tests++;
-                        break;
+                summary->results[result_idx] = slots[i].results[j];
+                switch (slots[i].results[j].status) {
+                    case TEST_SUCCESS: summary->passed_tests++; break;
+                    case TEST_FAILURE: summary->failed_tests++; break;
+                    case TEST_ERROR:   summary->error_tests++;  break;
                 }
                 result_idx++;
             }
             summary->total_tests += count;
         } else {
-            /* 单结果测试 */
-            TestResult *result = &summary->results[result_idx];
-            
-            /* 初始化结果 */
-            result->id = test->id;
-            result->name = test->name;
-            result->p_value = 0.0;
-            result->q_value = 0.0;
-            result->stat_value = 0.0;
-            result->status = TEST_ERROR;
-            result->message = NULL;
-            
-            /* 运行测试 */
-            TestStatus status = test->func(data, n, result, config);
-            result->status = status;
-            
-            switch (status) {
-                case TEST_SUCCESS:
-                    summary->passed_tests++;
-                    break;
-                case TEST_FAILURE:
-                    summary->failed_tests++;
-                    break;
-                case TEST_ERROR:
-                    summary->error_tests++;
-                    break;
+            if (result_idx >= MAX_RESULTS) break;
+            summary->results[result_idx] = slots[i].results[0];
+            switch (slots[i].results[0].status) {
+                case TEST_SUCCESS: summary->passed_tests++; break;
+                case TEST_FAILURE: summary->failed_tests++; break;
+                case TEST_ERROR:   summary->error_tests++;  break;
             }
-            
             result_idx++;
             summary->total_tests++;
         }
     }
-    
+
+    free(slots);
     summary->results_count = result_idx;
     return 0;
 }
