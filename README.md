@@ -7,35 +7,39 @@
 
 ## 功能特性
 
-- 支持 **19 种** NIST 随机性统计检测算法
+- 完整实现 **GM/T 0005-2021** 国密随机性检测规范要求的全部 **27 项独立检测项**（15 种检测方法）
+- 兼容 NIST SP 800-22 检测体系，可扩展额外项（已预留桩函数）
+- 双重判定（P_value / Q_value）支持
 - 纯 C 语言实现，无外部依赖
 - 支持命令行界面，易于集成到自动化测试流程
 - 支持多种输出格式（文本、JSON、CSV）
+- 支持位压缩存储模式（BIT_PACKING=1 编译宏）
 - 模块化设计，便于扩展和维护
 
 ## 支持的检测算法
 
-| 编号 | 测试ID | 测试名称 | 最小序列长度 |
-|------|--------|----------|--------------|
-| 1 | `frequency` | 单比特频数检测 | 100 |
-| 2 | `block_frequency` | 块内频数检测 | 100 |
-| 3 | `cumulative_sums` | 累加和检测 | 100 |
-| 4 | `runs` | 游程总数检测 | 100 |
-| 5 | `longest_run_ones` | 最长1游程检测 | 128 |
-| 6 | `rank` | 矩阵秩检测 | 1,024 |
-| 7 | `dft` | 离散傅立叶检测 | 1,000 |
-| 8 | `non_overlapping_template` | 非重叠模板匹配 | 100,000 |
-| 9 | `overlapping_template` | 重叠模板匹配 | 8,256 |
-| 10 | `universal` | 通用统计检测 | 387,840 |
-| 11 | `approximate_entropy` | 近似熵检测 | 100 |
-| 12 | `random_excursions` | 随机游程检测 | 10,000 |
-| 13 | `random_excursions_variant` | 随机游程变体检测 | 10,000 |
-| 14 | `serial` | 重叠子序列检测 | 100 |
-| 15 | `linear_complexity` | 线性复杂度检测 | 500 |
-| 16 | `binary_derivate` | 二元推导检测 | 100 |
-| 17 | `self_correlation` | 自相关检测 | 100 |
-| 18 | `poker` | 扑克检测 | 100 |
-| 19 | `runs_distribution` | 游程分布检测 | 100 |
+GM/T 0005-2021 标准要求的全部 27 项检测项均已实现：
+
+| 编号 | 测试ID | 测试名称 |
+|------|--------|----------|
+| 1 | `frequency` | 单比特频数检测 |
+| 2 | `block_frequency-m=10000` | 块内频数检测 |
+| 3-4 | `poker-m=4`, `poker-m=8` | 扑克检测 |
+| 5-6 | `serial-m=3`, `serial-m=5` | 重叠子序列检测（每项含 P1/P2 双 P 值） |
+| 7 | `runs` | 游程总数检测 |
+| 8 | `runs_distribution` | 游程分布检测 |
+| 9-10 | `longest_run-m=10000,ones/zeros` | 块内最大游程检测 |
+| 11-12 | `binary_derivative-k=3/7` | 二元推导检测 |
+| 13-16 | `self_correlation-d=1/2/8/16` | 自相关检测 |
+| 17 | `rank` | 矩阵秩检测（32×32） |
+| 18-19 | `cumulative_sums-forward/backward` | 累加和检测 |
+| 20-21 | `approximate_entropy-m=2/5` | 近似熵检测 |
+| 22-23 | `linear_complexity-m=500/1000` | 线性复杂度检测 |
+| 24 | `maurer_universal` | Maurer 通用统计检测（L=7,Q=1280） |
+| 25 | `dft` | 离散傅里叶变换检测 |
+
+> 注：序号 5/6 的 serial 检测项每项产生 2 个独立 P 值，故 25 个 ID 对应 27 项独立检测。
+> 此外注册了 4 项 NIST 扩展桩（non_overlapping_template、overlapping_template、random_excursions、random_excursions_variant）。
 
 ## 快速开始
 
@@ -77,8 +81,11 @@ sudo make uninstall
 # 运行所有测试
 ./bin/gmrtest -f random.bin
 
+# 运行 GM/T 0005-2021 全部 27 项国密预设
+./bin/gmrtest -f random.bin -g
+
 # 运行指定测试
-./bin/gmrtest -f random.bin -t frequency,runs,block_frequency
+./bin/gmrtest -f random.bin -t frequency,runs,block_frequency-m=10000
 
 # 指定显著性水平
 ./bin/gmrtest -f random.bin -a 0.05
@@ -236,25 +243,11 @@ int main(void)
 ## 开发状态
 
 - [x] 项目框架搭建
-- [x] 单比特频数检测
-- [x] 块内频数检测
-- [ ] 累加和检测
-- [ ] 游程总数检测
-- [ ] 最长1游程检测
-- [ ] 矩阵秩检测
-- [ ] 离散傅立叶检测
-- [ ] 非重叠模板匹配
-- [ ] 重叠模板匹配
-- [ ] 通用统计检测
-- [ ] 近似熵检测
-- [ ] 随机游程检测
-- [ ] 随机游程变体检测
-- [ ] 重叠子序列检测
-- [ ] 线性复杂度检测
-- [ ] 二元推导检测
-- [ ] 自相关检测
-- [ ] 扑克检测
-- [ ] 游程分布检测
+- [x] GM/T 0005-2021 全部 27 项独立检测项实现
+- [x] 双重判定（P_value/Q_value）支持
+- [x] 位压缩存储模式（BIT_PACKING=1）
+- [x] `-g` 一键运行国密预设
+- [ ] NIST 扩展项（non_overlapping_template / overlapping_template / random_excursions / random_excursions_variant）完整算法
 
 ## 参考资料
 

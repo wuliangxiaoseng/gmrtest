@@ -133,8 +133,8 @@ static const TestConfigEntry config_entries[] = {
     {"random_excursions_variant", "random_excursions_variant", NULL, "随机游程变体检测"},
     
     /* 其他测试 */
-    {"binary_derivate-k=3", "binary_derivate", "k=3", "二元推导检测 (k=3)"},
-    {"binary_derivate-k=7", "binary_derivate", "k=7", "二元推导检测 (k=7)"},
+    {"binary_derivative-k=3", "binary_derivative", "k=3", "二元推导检测 (k=3)"},
+    {"binary_derivative-k=7", "binary_derivative", "k=7", "二元推导检测 (k=7)"},
     {"autocorrelation-d=1", "autocorrelation", "d=1", "自相关检测 (d=1)"},
     {"autocorrelation-d=2", "autocorrelation", "d=2", "自相关检测 (d=2)"},
     {"autocorrelation-d=8", "autocorrelation", "d=8", "自相关检测 (d=8)"},
@@ -149,7 +149,7 @@ typedef struct {
     const char *param;        /* 参数值 */
 } TestConfigState;
 
-/* 国密标准测试（10项独立检测，对应配置项键名） */
+/* 国密标准测试（27 项独立检测，对应配置项键名） */
 static const char *gm_tests[] = {
     "frequency",
     "block_frequency-m=10000",
@@ -161,6 +161,21 @@ static const char *gm_tests[] = {
     "runs_distribution",
     "longest_run-m=10000,ones",
     "longest_run-m=10000,zeros",
+    "binary_derivative-k=3",
+    "binary_derivative-k=7",
+    "autocorrelation-d=1",
+    "autocorrelation-d=2",
+    "autocorrelation-d=8",
+    "autocorrelation-d=16",
+    "rank",
+    "cumulative_sums-forward",
+    "cumulative_sums-backward",
+    "approximate_entropy-m=2",
+    "approximate_entropy-m=5",
+    "linear_complexity-m=500",
+    "linear_complexity-m=1000",
+    "universal",
+    "dft",
     NULL
 };
 
@@ -188,8 +203,8 @@ static const char *nist_tests[] = {
     "poker-m=4",
     "poker-m=8",
     "runs_distribution",
-    "binary_derivate-k=3",
-    "binary_derivate-k=7",
+    "binary_derivative-k=3",
+    "binary_derivative-k=7",
     "autocorrelation-d=1",
     "autocorrelation-d=2",
     "autocorrelation-d=8",
@@ -661,12 +676,12 @@ static int run_tests(const CliOptions *opts)
     } else if (opts->preset == PRESET_GM) {
         test_ids = gm_tests;
         if (!opts->quiet) {
-            fprintf(stderr, "运行国密标准测试（6项）...\n");
+            fprintf(stderr, "运行国密标准测试（27项）...\n");
         }
     } else if (opts->preset == PRESET_NIST) {
         test_ids = nist_tests;
         if (!opts->quiet) {
-            fprintf(stderr, "运行NIST标准测试（17项）...\n");
+            fprintf(stderr, "运行NIST标准测试（28项）...\n");
         }
     } else {
         test_ids = NULL;

@@ -144,6 +144,7 @@ typedef struct {
     int template_length;    /**< 模板长度 */
     int derivate_order;     /**< 推导阶数 */
     int correlation_delay;  /**< 自相关延迟 */
+    int cusum_mode;         /**< 累加和方向：0=forward, 1=backward */
     double alpha;           /**< 显著性水平 */
 } TestConfig;
 

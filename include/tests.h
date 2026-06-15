@@ -88,6 +88,42 @@ TestStatus test_longest_run_zeros(const BitData *data, int n,
                                  TestResult *result, const TestConfig *config);
 
 /**
+ * @brief 二元推导检测
+ * 国密规范 GM/T 0005-2021: k=3, k=7
+ * @param data 比特数据
+ * @param n 序列长度（比特数）
+ * @param result 测试结果输出
+ * @param config 测试配置 (使用 derivative_k)
+ * @return 测试状态
+ */
+TestStatus test_binary_derivative(const BitData *data, int n, 
+                                 TestResult *result, const TestConfig *config);
+
+/**
+ * @brief 二元推导检测 (k=3)
+ * 国密规范 GM/T 0005-2021
+ * @param data 比特数据
+ * @param n 序列长度（比特数）
+ * @param result 测试结果输出
+ * @param config 测试配置
+ * @return 测试状态
+ */
+TestStatus test_binary_derivative_k3(const BitData *data, int n, 
+                                    TestResult *result, const TestConfig *config);
+
+/**
+ * @brief 二元推导检测 (k=7)
+ * 国密规范 GM/T 0005-2021
+ * @param data 比特数据
+ * @param n 序列长度（比特数）
+ * @param result 测试结果输出
+ * @param config 测试配置
+ * @return 测试状态
+ */
+TestStatus test_binary_derivative_k7(const BitData *data, int n, 
+                                    TestResult *result, const TestConfig *config);
+
+/**
  * @brief 矩阵秩检测
  * @param data 比特数据
  * @param n 序列长度（比特数）
@@ -244,6 +280,38 @@ int test_serial(const BitData *data, int n, TestResult *results, int max_results
  */
 TestStatus test_runs_distribution(const BitData *data, int n, 
                                   TestResult *result, const TestConfig *config);
+
+/* ============================================================================
+ * 国密 GM/T 0005-2021 参数化检测项 wrapper 函数
+ * ============================================================================ */
+
+/* 累加和检测 */
+TestStatus test_cumulative_sums_forward(const BitData *data, int n,
+                                        TestResult *result, const TestConfig *config);
+TestStatus test_cumulative_sums_backward(const BitData *data, int n,
+                                         TestResult *result, const TestConfig *config);
+
+/* 自相关检测 d=1/2/8/16 */
+TestStatus test_self_correlation_d1(const BitData *data, int n,
+                                    TestResult *result, const TestConfig *config);
+TestStatus test_self_correlation_d2(const BitData *data, int n,
+                                    TestResult *result, const TestConfig *config);
+TestStatus test_self_correlation_d8(const BitData *data, int n,
+                                    TestResult *result, const TestConfig *config);
+TestStatus test_self_correlation_d16(const BitData *data, int n,
+                                     TestResult *result, const TestConfig *config);
+
+/* 近似熵检测 m=2/m=5 */
+TestStatus test_approximate_entropy_m2(const BitData *data, int n,
+                                       TestResult *result, const TestConfig *config);
+TestStatus test_approximate_entropy_m5(const BitData *data, int n,
+                                       TestResult *result, const TestConfig *config);
+
+/* 线性复杂度检测 m=500/m=1000 */
+TestStatus test_linear_complexity_m500(const BitData *data, int n,
+                                       TestResult *result, const TestConfig *config);
+TestStatus test_linear_complexity_m1000(const BitData *data, int n,
+                                        TestResult *result, const TestConfig *config);
 
 /* ============================================================================
  * 测试管理函数

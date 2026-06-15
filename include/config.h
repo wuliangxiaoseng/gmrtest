@@ -73,8 +73,29 @@
 #define TEST_ID_POKER_STR                   "poker"
 #define TEST_ID_RUNS_DISTRIBUTION_STR       "runs_distribution"
 
-/** 测试总数 */
-#define TEST_COUNT                      20
+/* 国密规范 GM/T 0005-2021 参数化测试ID（按 "算法名-参数" 格式） */
+#define TEST_ID_BLOCK_FREQUENCY_M10000_STR      "block_frequency-m=10000"
+#define TEST_ID_POKER_M4_STR                    "poker-m=4"
+#define TEST_ID_POKER_M8_STR                    "poker-m=8"
+#define TEST_ID_SERIAL_M3_STR                   "serial-m=3"
+#define TEST_ID_SERIAL_M5_STR                   "serial-m=5"
+#define TEST_ID_LONGEST_RUN_M10000_ONES_STR     "longest_run-m=10000,ones"
+#define TEST_ID_LONGEST_RUN_M10000_ZEROS_STR    "longest_run-m=10000,zeros"
+#define TEST_ID_BINARY_DERIVATIVE_K3_STR        "binary_derivative-k=3"
+#define TEST_ID_BINARY_DERIVATIVE_K7_STR        "binary_derivative-k=7"
+#define TEST_ID_CUMULATIVE_SUMS_FORWARD_STR     "cumulative_sums-forward"
+#define TEST_ID_CUMULATIVE_SUMS_BACKWARD_STR    "cumulative_sums-backward"
+#define TEST_ID_AUTOCORRELATION_D1_STR          "autocorrelation-d=1"
+#define TEST_ID_AUTOCORRELATION_D2_STR          "autocorrelation-d=2"
+#define TEST_ID_AUTOCORRELATION_D8_STR          "autocorrelation-d=8"
+#define TEST_ID_AUTOCORRELATION_D16_STR         "autocorrelation-d=16"
+#define TEST_ID_APPROXIMATE_ENTROPY_M2_STR      "approximate_entropy-m=2"
+#define TEST_ID_APPROXIMATE_ENTROPY_M5_STR      "approximate_entropy-m=5"
+#define TEST_ID_LINEAR_COMPLEXITY_M500_STR      "linear_complexity-m=500"
+#define TEST_ID_LINEAR_COMPLEXITY_M1000_STR     "linear_complexity-m=1000"
+
+/** 测试总数（27 项国密独立检测项 + 4 项 NIST 桩 = 31） */
+#define TEST_COUNT                      31
 
 /* ============================================================================
  * 默认参数配置
@@ -106,6 +127,18 @@
 
 /* 自相关检测 */
 #define DEFAULT_CORRELATION_DELAY       1
+
+/* 国密规范参数（用于 wrapper 函数） */
+#define UNIVERSAL_GM_L                  7
+#define UNIVERSAL_GM_Q                  1280
+#define APPROX_ENTROPY_M_2              2
+#define APPROX_ENTROPY_M_5              5
+#define LINEAR_COMPLEXITY_M_500         500
+#define LINEAR_COMPLEXITY_M_1000        1000
+#define AUTOCORRELATION_D_1             1
+#define AUTOCORRELATION_D_2             2
+#define AUTOCORRELATION_D_8             8
+#define AUTOCORRELATION_D_16            16
 
 /* ============================================================================
  * 最小序列长度要求

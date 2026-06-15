@@ -50,10 +50,20 @@ SRCS_TESTS  = $(SRC_DIR)/tests/frequency.c \
               $(SRC_DIR)/tests/serial.c \
               $(SRC_DIR)/tests/runs_distribution.c \
               $(SRC_DIR)/tests/longest_run.c \
+              $(SRC_DIR)/tests/binary_derivative.c \
+              $(SRC_DIR)/tests/cumulative_sums.c \
+              $(SRC_DIR)/tests/self_correlation.c \
+              $(SRC_DIR)/tests/approximate_entropy.c \
+              $(SRC_DIR)/tests/rank.c \
+              $(SRC_DIR)/tests/dft.c \
+              $(SRC_DIR)/tests/universal.c \
+              $(SRC_DIR)/tests/linear_complexity.c \
               $(SRC_DIR)/tests/tests_stub.c
 
 SRCS_UTILS  = $(SRC_DIR)/utils/math.c \
-              $(SRC_DIR)/utils/io.c
+              $(SRC_DIR)/utils/io.c \
+              $(SRC_DIR)/utils/matrix.c \
+              $(SRC_DIR)/utils/fft.c
 
 SRCS        = $(SRCS_MAIN) $(SRCS_TESTS) $(SRCS_UTILS)
 

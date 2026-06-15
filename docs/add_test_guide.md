@@ -496,18 +496,46 @@ make && ./bin/gmrtest -f test/random.bin -t example
 
 ## 附录：现有测试项清单
 
+### GM/T 0005-2021 标准检测项（27 项，已全部实现）
+
+| 序号 | 测试项ID | 中文名称 | 状态 |
+|-----|---------|---------|------|
+| 1 | frequency | 单比特频数检测 | ✅ 已实现 |
+| 2 | block_frequency-m=10000 | 块内频数检测 | ✅ 已实现 |
+| 3 | poker-m=4 | 扑克检测 (m=4) | ✅ 已实现 |
+| 4 | poker-m=8 | 扑克检测 (m=8) | ✅ 已实现 |
+| 5 | serial-m=3 | 重叠子序列检测 (m=3, 双 P 值) | ✅ 已实现 |
+| 6 | serial-m=5 | 重叠子序列检测 (m=5, 双 P 值) | ✅ 已实现 |
+| 7 | runs | 游程总数检测 | ✅ 已实现 |
+| 8 | runs_distribution | 游程分布检测 | ✅ 已实现 |
+| 9 | longest_run-m=10000,ones | 块内最大1游程检测 | ✅ 已实现 |
+| 10 | longest_run-m=10000,zeros | 块内最大0游程检测 | ✅ 已实现 |
+| 11 | binary_derivative-k=3 | 二元推导检测 (k=3) | ✅ 已实现 |
+| 12 | binary_derivative-k=7 | 二元推导检测 (k=7) | ✅ 已实现 |
+| 13 | self_correlation-d=1 | 自相关检测 (d=1) | ✅ 已实现 |
+| 14 | self_correlation-d=2 | 自相关检测 (d=2) | ✅ 已实现 |
+| 15 | self_correlation-d=8 | 自相关检测 (d=8) | ✅ 已实现 |
+| 16 | self_correlation-d=16 | 自相关检测 (d=16) | ✅ 已实现 |
+| 17 | rank | 矩阵秩检测 (32×32) | ✅ 已实现 |
+| 18 | cumulative_sums-forward | 累加和检测 (前向) | ✅ 已实现 |
+| 19 | cumulative_sums-backward | 累加和检测 (后向) | ✅ 已实现 |
+| 20 | approximate_entropy-m=2 | 近似熵检测 (m=2) | ✅ 已实现 |
+| 21 | approximate_entropy-m=5 | 近似熵检测 (m=5) | ✅ 已实现 |
+| 22 | linear_complexity-m=500 | 线性复杂度检测 (m=500) | ✅ 已实现 |
+| 23 | linear_complexity-m=1000 | 线性复杂度检测 (m=1000) | ✅ 已实现 |
+| 24 | maurer_universal | Maurer 通用统计检测 (L=7,Q=1280) | ✅ 已实现 |
+| 25 | dft | 离散傅里叶变换检测 | ✅ 已实现 |
+
+> 说明：序号 5/6 的 serial 检测项每项产生 2 个独立 P 值（P1/P2），故 25 个 ID 对应 27 项独立检测。
+
+### NIST SP 800-22 扩展项（桩实现，仅注册）
+
 | 测试项ID | 中文名称 | 状态 |
 |---------|---------|------|
-| frequency | 单比特频数检测 | ✅ 已实现 |
-| block_frequency-m=10000 | 块内频数检测 | ✅ 已实现 |
-| poker-m=4 | 扑克检测 (m=4) | ✅ 已实现 |
-| poker-m=8 | 扑克检测 (m=8) | ✅ 已实现 |
-| serial-m=3 | 重叠子序列检测 (m=3) | ✅ 已实现 |
-| serial-m=5 | 重叠子序列检测 (m=5) | ✅ 已实现 |
-| runs | 游程总数检测 | ✅ 已实现 |
-| runs_distribution | 游程分布检测 | ✅ 已实现 |
-| longest_run-m=10000,ones | 块内最大1游程检测 | ✅ 已实现 |
-| longest_run-m=10000,zeros | 块内最大0游程检测 | ✅ 已实现 |
+| non_overlapping_template | 非重叠模板匹配检测 | 🔧 桩函数 |
+| overlapping_template | 重叠模板匹配检测 | 🔧 桩函数 |
+| random_excursions | 随机游走检测 | 🔧 桩函数 |
+| random_excursions_variant | 随机游走变量检测 | 🔧 桩函数 |
 
 ---
 
@@ -516,3 +544,4 @@ make && ./bin/gmrtest -f test/random.bin -t example
 | 版本 | 日期 | 变更 | 作者 |
 |------|------|------|------|
 | 1.0 | 2024-06-13 | 初始版本 | gmrtest 开发团队 |
+| 1.1 | 2026-06-15 | 完成 GM/T 0005-2021 全部 27 项独立检测项 | gmrtest 开发团队 |

@@ -15,26 +15,97 @@
  * ============================================================================ */
 
 static TestItem all_tests[TEST_COUNT] = {
-    {TEST_ID_FREQUENCY_STR,              "单比特频数检测",       "检测序列中0和1的比例",       test_frequency,              NULL,                        MIN_LENGTH_FREQUENCY},
-    {TEST_ID_BLOCK_FREQUENCY_STR,        "块内频数检测",         "检测块内1的比例分布",       test_block_frequency,        NULL,                        MIN_LENGTH_BLOCK_FREQUENCY},
-    {TEST_ID_CUMULATIVE_SUMS_STR,        "累加和检测",           "检测累积和的随机游走",       test_cumulative_sums,        NULL,                        MIN_LENGTH_CUMULATIVE_SUMS},
-    {TEST_ID_RUNS_STR,                   "游程总数检测",         "检测游程数量分布",          test_runs,                   NULL,                        MIN_LENGTH_RUNS},
-    {TEST_ID_LONGEST_RUN_ONES_STR,       "最长1游程检测",        "检测最长连续1的长度",       test_longest_run_ones,       NULL,                        MIN_LENGTH_LONGEST_RUN_ONES},
-    {TEST_ID_LONGEST_RUN_ZEROS_STR,       "最长0游程检测",        "检测最长连续0的长度",       test_longest_run_zeros,      NULL,                        MIN_LENGTH_LONGEST_RUN_ONES},
-    {TEST_ID_RANK_STR,                   "矩阵秩检测",           "检测矩阵秩的分布",          test_rank,                   NULL,                        MIN_LENGTH_RANK},
-    {TEST_ID_DFT_STR,                    "离散傅立叶检测",       "通过FFT检测周期性",         test_dft,                    NULL,                        MIN_LENGTH_DFT},
-    {TEST_ID_NON_OVERLAPPING_TMPL_STR,   "非重叠模板匹配",       "检测非重叠模板出现频率",    test_non_overlapping_template, NULL,                    MIN_LENGTH_NON_OVERLAPPING},
-    {TEST_ID_OVERLAPPING_TMPL_STR,       "重叠模板匹配",         "检测重叠模板出现频率",      test_overlapping_template,   NULL,                        MIN_LENGTH_OVERLAPPING},
-    {TEST_ID_UNIVERSAL_STR,              "通用统计检测",         "检测序列压缩性",            test_universal,              NULL,                        MIN_LENGTH_UNIVERSAL},
-    {TEST_ID_APPROXIMATE_ENTROPY_STR,    "近似熵检测",           "检测序列复杂度",            test_approximate_entropy,    NULL,                        MIN_LENGTH_APPROXIMATE_ENTROPY},
-    {TEST_ID_RANDOM_EXCURSIONS_STR,      "随机游程检测",         "检测随机游走返回次数",      test_random_excursions,      NULL,                        MIN_LENGTH_RANDOM_EXCURSIONS},
-    {TEST_ID_RANDOM_EXCURSIONS_VAR_STR,  "随机游程变体检测",     "检测扩展状态访问次数",      test_random_excursions_variant, NULL,                    MIN_LENGTH_RANDOM_EXCURSIONS_VAR},
-    {TEST_ID_SERIAL_STR,                 "重叠子序列检测",       "检测连续模式频率分布",      NULL,                        test_serial,                 MIN_LENGTH_SERIAL},
-    {TEST_ID_LINEAR_COMPLEXITY_STR,      "线性复杂度检测",       "检测LFSR最短长度",         test_linear_complexity,      NULL,                        MIN_LENGTH_LINEAR_COMPLEXITY},
-    {TEST_ID_BINARY_DERIVATE_STR,        "二元推导检测",         "检测k阶推导后随机性",       test_binary_derivate,        NULL,                        MIN_LENGTH_BINARY_DERIVATE},
-    {TEST_ID_SELF_CORRELATION_STR,       "自相关检测",           "检测序列自相关性",          test_self_correlation,       NULL,                        MIN_LENGTH_SELF_CORRELATION},
-    {TEST_ID_POKER_STR,                  "扑克检测",             "检测块模式分布",            NULL,                        test_poker,                  MIN_LENGTH_POKER},
-    {TEST_ID_RUNS_DISTRIBUTION_STR,      "游程分布检测",         "检测游程长度分布",          test_runs_distribution,      NULL,                        MIN_LENGTH_RUNS_DISTRIBUTION}
+    /* ===== 国密 GM/T 0005-2021 要求的 27 项独立检测项 ===== */
+
+    /* 1. 单比特频数检测 */
+    {TEST_ID_FREQUENCY_STR, "单比特频数检测", "检测序列中0和1的比例",
+     test_frequency, NULL, MIN_LENGTH_FREQUENCY},
+
+    /* 2. 块内频数检测 m=10000 */
+    {TEST_ID_BLOCK_FREQUENCY_M10000_STR, "块内频数检测(m=10000)", "块内1的比例分布",
+     test_block_frequency, NULL, MIN_LENGTH_BLOCK_FREQUENCY},
+
+    /* 3-4. 扑克检测 m=4 / m=8 (multi_func 提供 m=4,m=8 两个结果) */
+    {TEST_ID_POKER_STR, "扑克检测", "块模式分布",
+     NULL, test_poker, MIN_LENGTH_POKER},
+
+    /* 5-8. 重叠子序列检测 m=3 / m=5 (multi_func 提供 4 个结果) */
+    {TEST_ID_SERIAL_STR, "重叠子序列检测", "连续模式频率分布",
+     NULL, test_serial, MIN_LENGTH_SERIAL},
+
+    /* 9. 游程总数检测 */
+    {TEST_ID_RUNS_STR, "游程总数检测", "游程数量分布",
+     test_runs, NULL, MIN_LENGTH_RUNS},
+
+    /* 10. 游程分布检测 */
+    {TEST_ID_RUNS_DISTRIBUTION_STR, "游程分布检测", "游程长度分布",
+     test_runs_distribution, NULL, MIN_LENGTH_RUNS_DISTRIBUTION},
+
+    /* 11. 块内最大1游程检测 m=10000 */
+    {TEST_ID_LONGEST_RUN_M10000_ONES_STR, "块内最大1游程检测(m=10000)", "最长连续1的长度",
+     test_longest_run_ones, NULL, MIN_LENGTH_LONGEST_RUN_ONES},
+
+    /* 12. 块内最大0游程检测 m=10000 */
+    {TEST_ID_LONGEST_RUN_M10000_ZEROS_STR, "块内最大0游程检测(m=10000)", "最长连续0的长度",
+     test_longest_run_zeros, NULL, MIN_LENGTH_LONGEST_RUN_ONES},
+
+    /* 13. 二元推导检测 k=3 */
+    {TEST_ID_BINARY_DERIVATIVE_K3_STR, "二元推导检测(k=3)", "k=3次异或推导序列",
+     test_binary_derivative_k3, NULL, MIN_LENGTH_BINARY_DERIVATE},
+
+    /* 14. 二元推导检测 k=7 */
+    {TEST_ID_BINARY_DERIVATIVE_K7_STR, "二元推导检测(k=7)", "k=7次异或推导序列",
+     test_binary_derivative_k7, NULL, MIN_LENGTH_BINARY_DERIVATE},
+
+    /* 15-18. 自相关检测 d=1/2/8/16 */
+    {TEST_ID_AUTOCORRELATION_D1_STR, "自相关检测(d=1)", "自相关性",
+     test_self_correlation_d1, NULL, MIN_LENGTH_SELF_CORRELATION},
+    {TEST_ID_AUTOCORRELATION_D2_STR, "自相关检测(d=2)", "自相关性",
+     test_self_correlation_d2, NULL, MIN_LENGTH_SELF_CORRELATION},
+    {TEST_ID_AUTOCORRELATION_D8_STR, "自相关检测(d=8)", "自相关性",
+     test_self_correlation_d8, NULL, MIN_LENGTH_SELF_CORRELATION},
+    {TEST_ID_AUTOCORRELATION_D16_STR, "自相关检测(d=16)", "自相关性",
+     test_self_correlation_d16, NULL, MIN_LENGTH_SELF_CORRELATION},
+
+    /* 19. 矩阵秩检测 */
+    {TEST_ID_RANK_STR, "矩阵秩检测", "32x32矩阵秩分布",
+     test_rank, NULL, MIN_LENGTH_RANK},
+
+    /* 20-21. 累加和检测（前向/后向） */
+    {TEST_ID_CUMULATIVE_SUMS_FORWARD_STR, "累加和检测(前向)", "累积和随机游走(前向)",
+     test_cumulative_sums_forward, NULL, MIN_LENGTH_CUMULATIVE_SUMS},
+    {TEST_ID_CUMULATIVE_SUMS_BACKWARD_STR, "累加和检测(后向)", "累积和随机游走(后向)",
+     test_cumulative_sums_backward, NULL, MIN_LENGTH_CUMULATIVE_SUMS},
+
+    /* 22-23. 近似熵检测 m=2 / m=5 */
+    {TEST_ID_APPROXIMATE_ENTROPY_M2_STR, "近似熵检测(m=2)", "近似熵复杂度",
+     test_approximate_entropy_m2, NULL, MIN_LENGTH_APPROXIMATE_ENTROPY},
+    {TEST_ID_APPROXIMATE_ENTROPY_M5_STR, "近似熵检测(m=5)", "近似熵复杂度",
+     test_approximate_entropy_m5, NULL, MIN_LENGTH_APPROXIMATE_ENTROPY},
+
+    /* 24-25. 线性复杂度检测 m=500 / m=1000 */
+    {TEST_ID_LINEAR_COMPLEXITY_M500_STR, "线性复杂度检测(m=500)", "LFSR最短长度分布",
+     test_linear_complexity_m500, NULL, MIN_LENGTH_LINEAR_COMPLEXITY},
+    {TEST_ID_LINEAR_COMPLEXITY_M1000_STR, "线性复杂度检测(m=1000)", "LFSR最短长度分布",
+     test_linear_complexity_m1000, NULL, MIN_LENGTH_LINEAR_COMPLEXITY},
+
+    /* 26. Maurer 通用统计检测 (L=7,Q=1280) */
+    {TEST_ID_UNIVERSAL_STR, "Maurer通用统计检测(L=7,Q=1280)", "序列压缩性",
+     test_universal, NULL, MIN_LENGTH_UNIVERSAL},
+
+    /* 27. 离散傅立叶检测 */
+    {TEST_ID_DFT_STR, "离散傅立叶检测", "FFT周期性",
+     test_dft, NULL, MIN_LENGTH_DFT},
+
+    /* ===== 以下为 NIST 规范但国密不要求的项（保留为桩） ===== */
+    {TEST_ID_NON_OVERLAPPING_TMPL_STR, "非重叠模板匹配", "非重叠模板出现频率",
+     test_non_overlapping_template, NULL, MIN_LENGTH_NON_OVERLAPPING},
+    {TEST_ID_OVERLAPPING_TMPL_STR, "重叠模板匹配", "重叠模板出现频率",
+     test_overlapping_template, NULL, MIN_LENGTH_OVERLAPPING},
+    {TEST_ID_RANDOM_EXCURSIONS_STR, "随机游程检测", "随机游走返回次数",
+     test_random_excursions, NULL, MIN_LENGTH_RANDOM_EXCURSIONS},
+    {TEST_ID_RANDOM_EXCURSIONS_VAR_STR, "随机游程变体检测", "扩展状态访问次数",
+     test_random_excursions_variant, NULL, MIN_LENGTH_RANDOM_EXCURSIONS_VAR}
 };
 
 /* ============================================================================
@@ -66,6 +137,7 @@ void gmrtest_default_config(TestConfig *config)
     config->template_length = DEFAULT_NON_OVERLAPPING_M;
     config->derivate_order = DEFAULT_DERIVATE_ORDER;
     config->correlation_delay = DEFAULT_CORRELATION_DELAY;
+    config->cusum_mode = 0;
     config->alpha = DEFAULT_ALPHA;
 }
 
@@ -172,58 +244,33 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
         const char *test_id = test_ids[i];
         const TestItem *test = NULL;
         int sub_index = -1;  /* 多结果测试的子索引 */
-        
-        /* 处理配置项格式的测试ID (如 "poker-m=4", "serial-m=3") */
+
+        /* 仅 poker / serial 仍使用 multi_func + sub_index 派发 */
         if (strncmp(test_id, "poker-m=", 8) == 0) {
             const char *param = test_id + 8;
             test = get_test_by_id(TEST_ID_POKER_STR);
             if (strcmp(param, "4") == 0) {
-                sub_index = 0;  /* m=4 -> P1 */
+                sub_index = 0;
             } else if (strcmp(param, "8") == 0) {
-                sub_index = 1;  /* m=8 -> P2 */
+                sub_index = 1;
             }
         } else if (strncmp(test_id, "serial-m=", 9) == 0) {
             const char *param = test_id + 9;
             test = get_test_by_id(TEST_ID_SERIAL_STR);
             if (strcmp(param, "3") == 0) {
-                sub_index = 0;  /* m=3 -> P1 */
+                sub_index = 0;  /* m=3 P1 */
             } else if (strcmp(param, "5") == 0) {
-                sub_index = 2;  /* m=5 -> P1 */
+                sub_index = 2;  /* m=5 P1 */
             }
-        } else if (strncmp(test_id, "block_frequency-m=", 18) == 0) {
-            /* 块内频数检测，参数 m=10000 */
-            test = get_test_by_id(TEST_ID_BLOCK_FREQUENCY_STR);
-        } else if (strncmp(test_id, "cumulative_sums-", 15) == 0) {
-            /* 累加和检测，支持 forward/backward */
-            test = get_test_by_id(TEST_ID_CUMULATIVE_SUMS_STR);
-        } else if (strncmp(test_id, "longest_run-m=", 14) == 0) {
-            /* 块内最大游程检测 */
-            const char *param = test_id + 14;
-            if (strcmp(param, "10000,ones") == 0) {
-                test = get_test_by_id(TEST_ID_LONGEST_RUN_ONES_STR);
-            } else if (strcmp(param, "10000,zeros") == 0) {
-                test = get_test_by_id("longest_run_zeros");
-            }
-        } else if (strncmp(test_id, "approximate_entropy-m=", 21) == 0) {
-            /* 近似熵检测 */
-            test = get_test_by_id(TEST_ID_APPROXIMATE_ENTROPY_STR);
-        } else if (strncmp(test_id, "linear_complexity-m=", 19) == 0) {
-            /* 线性复杂度检测 */
-            test = get_test_by_id(TEST_ID_LINEAR_COMPLEXITY_STR);
-        } else if (strncmp(test_id, "binary_derivate-k=", 18) == 0) {
-            /* 二元推导检测 */
-            test = get_test_by_id(TEST_ID_BINARY_DERIVATE_STR);
-        } else if (strncmp(test_id, "autocorrelation-d=", 18) == 0) {
-            /* 自相关检测 */
-            test = get_test_by_id(TEST_ID_AUTOCORRELATION_STR);
         } else {
+            /* 其余完整 ID 均直接通过 get_test_by_id 命中 */
             test = get_test_by_id(test_id);
         }
-        
+
         if (test == NULL) {
             continue;
         }
-        
+
         if (n < test->min_length) {
             continue;
         }
