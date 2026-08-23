@@ -145,6 +145,7 @@ typedef struct {
     int derivate_order;     /**< 推导阶数 */
     int correlation_delay;  /**< 自相关延迟 */
     int cusum_mode;         /**< 累加和方向：0=forward, 1=backward */
+    int num_threads;        /**< 并行线程数：1=单线程, >1=并行, <=0=自动(取环境变量,默认1) */
     double alpha;           /**< 显著性水平 */
 } TestConfig;
 

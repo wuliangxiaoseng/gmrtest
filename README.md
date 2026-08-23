@@ -49,12 +49,14 @@ GM/T 0005-2021 标准要求的全部 27 项检测项均已实现：
 # 克隆项目
 cd /root/dp_workspace/random/random1
 
-# 构建
+# 构建（单一版本，内置多线程支持，默认单线程运行）
 make
 
 # 调试模式构建
 make DEBUG=1
 ```
+
+> 多线程支持始终编译启用，无需额外构建参数。运行时通过 `-j/--threads` 指定线程数，默认单线程执行。
 
 ### 安装
 
@@ -78,11 +80,17 @@ sudo make uninstall
 # 列出所有可用测试
 ./bin/gmrtest -l
 
-# 运行所有测试
+# 运行所有测试（默认单线程）
 ./bin/gmrtest -f random.bin
 
-# 运行 GM/T 0005-2021 全部 27 项国密预设
+# 运行 GM/T 0005-2021 全部 27 项国密预设（默认单线程）
 ./bin/gmrtest -f random.bin -g
+
+# 8 线程并行运行国密预设（线性复杂度/通用统计等慢项显著提速）
+./bin/gmrtest -f random.bin -g -j 8
+
+# 自动线程数（读取环境变量 GMRTEST_THREADS，未设置则为单线程）
+./bin/gmrtest -f random.bin -g -j 0
 
 # 运行指定测试
 ./bin/gmrtest -f random.bin -t frequency,runs,block_frequency-m=10000
@@ -106,6 +114,7 @@ sudo make uninstall
 | `-t` | `--tests` | `<列表>` | 指定要运行的测试（逗号分隔） |
 | `-a` | `--alpha` | `<值>` | 显著性水平（默认 0.01） |
 | `-F` | `--format` | `<格式>` | 输出格式: text, json, csv |
+| `-j` | `--threads` | `<值>` | 并行线程数: 1=单线程(默认), N=并行, 0=自动(取环境变量 GMRTEST_THREADS) |
 | `-l` | `--list` | - | 列出所有可用测试 |
 | `-q` | `--quiet` | - | 静默模式 |
 | `-h` | `--help` | - | 显示帮助信息 |

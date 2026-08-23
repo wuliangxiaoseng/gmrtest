@@ -183,6 +183,7 @@ void gmrtest_default_config(TestConfig *config)
     config->derivate_order = DEFAULT_DERIVATE_ORDER;
     config->correlation_delay = DEFAULT_CORRELATION_DELAY;
     config->cusum_mode = 0;
+    config->num_threads = 1;   /* 默认单线程 */
     config->alpha = DEFAULT_ALPHA;
 }
 
@@ -382,7 +383,7 @@ int gmrtest_run_multiple(const char **test_ids, int test_count,
     ctx.config = config;
 
     parallel_for(gmr_run_one_slot, &ctx, unique_count,
-                 gmrtest_recommended_threads());
+                 config->num_threads);
 
     /* ----------------------------------------------------------------
      * 阶段 3：按 test_ids 顺序串行汇总结果到 summary
@@ -496,7 +497,7 @@ int gmrtest_run_all(const BitData *data, int n,
     ctx.config = config;
 
     parallel_for(gmr_run_one_slot, &ctx, TEST_COUNT,
-                 gmrtest_recommended_threads());
+                 config->num_threads);
 
     /* ----------------------------------------------------------------
      * 阶段 2：按注册表顺序串行汇总结果

@@ -24,15 +24,11 @@ ifdef BIT_PACKING
     TARGET_SUFFIX := _packed
 endif
 
-# 多线程模式 (MULTI_THREAD=1)
-# 默认不启用，串行执行所有检测项
-# 启用后：使用 pthread 并行调度多个测试项，显著加速大数据量场景
-# 线程数：运行时通过环境变量 GMRTEST_THREADS 指定，否则使用 CPU 核心数
-ifdef MULTI_THREAD
-    CFLAGS  += -DUSE_PTHREAD=1
-    LDFLAGS += -lpthread
-    TARGET_SUFFIX := $(TARGET_SUFFIX)_mt
-endif
+# 多线程支持（始终编译启用）
+# 运行时通过命令行 -j/--threads 或环境变量 GMRTEST_THREADS 指定线程数
+# 默认单线程执行（-j 不传且未设置环境变量时退化为串行）
+CFLAGS  += -DUSE_PTHREAD=1
+LDFLAGS += -lpthread
 
 # ============================================================================
 # 目录配置
@@ -187,19 +183,28 @@ help:
 	@echo "  CFLAGS       - 编译选项"
 	@echo "  DEBUG=1      - 启用调试模式"
 	@echo "  BIT_PACKING=1 - 启用位压缩模式"
-	@echo "  MULTI_THREAD=1 - 启用多线程并行执行测试项 (依赖 pthread)"
 	@echo ""
 	@echo "存储模式说明:"
 	@echo "  字节/比特模式 (默认): 每个比特占用1字节，访问速度快，兼容NIST原始实现"
 	@echo "  位压缩模式 (pack):   8个比特压缩到1字节，节省87.5%内存，适合大数据量"
 	@echo ""
+	@echo "多线程说明:"
+	@echo "  多线程支持始终编译启用，运行时通过 -j/--threads 指定线程数"
+	@echo "  -j 1        单线程执行 (默认)"
+	@echo "  -j N        使用 N 个线程并行执行测试项"
+	@echo "  -j 0        自动选择 (取环境变量 GMRTEST_THREADS，未设置则为单线程)"
+	@echo ""
 	@echo "示例:"
 	@echo "  make              # 构建项目 (字节/比特模式)"
 	@echo "  make pack         # 位压缩模式构建"
-	@echo "  make MULTI_THREAD=1 # 多线程并行构建"
 	@echo "  make DEBUG=1      # 调试模式构建"
 	@echo "  make clean        # 清理"
 	@echo "  sudo make install # 安装"
+	@echo ""
+	@echo "运行示例:"
+	@echo "  ./bin/gmrtest -f random.bin -g            # 单线程 (默认)"
+	@echo "  ./bin/gmrtest -f random.bin -g -j 8       # 8 线程并行"
+	@echo "  ./bin/gmrtest -f random.bin -g -j 0       # 自动线程数"
 
 # ============================================================================
 # 依赖关系

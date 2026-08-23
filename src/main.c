@@ -23,6 +23,7 @@ static struct option long_options[] = {
     {"alpha",    required_argument, 0, 'a'},
     {"format",   required_argument, 0, 'F'},
     {"config",   required_argument, 0, 'c'},
+    {"threads",  required_argument, 0, 'j'},
     {"gm",       no_argument,       0, 'g'},
     {"nist",     no_argument,       0, 'n'},
     {"list",     no_argument,       0, 'l'},
@@ -32,7 +33,7 @@ static struct option long_options[] = {
     {0, 0, 0, 0}
 };
 
-static const char *short_options = "f:o:t:a:F:c:gnlhvq";
+static const char *short_options = "f:o:t:a:F:c:j:gnlhvq";
 
 /* ============================================================================
  * 输出格式枚举
@@ -66,6 +67,7 @@ typedef struct {
     double alpha;
     OutputFormat format;
     TestPreset preset;
+    int num_threads;        /* 并行线程数: 1=单线程, N=并行, 0=自动(读环境变量,未设置则单线程) */
     int list_tests;
     int show_help;
     int show_version;
@@ -238,6 +240,7 @@ int main(int argc, char *argv[])
         .alpha = DEFAULT_ALPHA,
         .format = FORMAT_TEXT,
         .preset = PRESET_NONE,
+        .num_threads = 0,       /* 默认未指定: 自动(读 GMRTEST_THREADS, 未设置则单线程) */
         .list_tests = 0,
         .show_help = 0,
         .show_version = 0,
@@ -318,14 +321,16 @@ static void print_usage(const char *prog_name)
     printf("  -n, --nist             运行NIST标准测试（21项）\n");
     printf("  -a, --alpha <值>       显著性水平（默认 %.2f）\n", DEFAULT_ALPHA);
     printf("  -F, --format <格式>    输出格式: text, json, csv（默认 text）\n");
+    printf("  -j, --threads <值>     并行线程数: 1=单线程(默认), N=并行, 0=自动\n");
     printf("  -l, --list             列出所有可用测试\n");
     printf("  -q, --quiet            静默模式，只输出结果\n");
     printf("  -h, --help             显示帮助信息\n");
     printf("  -v, --version          显示版本信息\n");
     printf("\n");
     printf("示例:\n");
-    printf("  %s -f random.bin                    # 运行所有测试\n", prog_name);
+    printf("  %s -f random.bin                    # 运行所有测试（单线程）\n", prog_name);
     printf("  %s -f random.bin -g                 # 运行国密标准测试\n", prog_name);
+    printf("  %s -f random.bin -g -j 8            # 8线程并行运行国密标准测试\n", prog_name);
     printf("  %s -f random.bin -n                 # 运行NIST标准测试\n", prog_name);
     printf("  %s -c config.ini                    # 使用配置文件\n", prog_name);
     printf("  %s -c config.ini -o result.json     # 配置文件+输出文件\n", prog_name);
@@ -443,6 +448,13 @@ static int parse_options(int argc, char *argv[], CliOptions *opts)
                 break;
             case 't':
                 opts->test_list = optarg;
+                break;
+            case 'j':
+                opts->num_threads = atoi(optarg);
+                if (opts->num_threads < 0) {
+                    fprintf(stderr, "错误: 线程数不能为负数\n");
+                    return -1;
+                }
                 break;
             case 'g':
                 opts->preset = PRESET_GM;
@@ -636,6 +648,7 @@ static int run_tests(const CliOptions *opts)
     /* 初始化配置 */
     gmrtest_default_config(&config);
     config.alpha = opts->alpha;
+    config.num_threads = opts->num_threads;
 
     /* 读取输入文件 */
     if (!opts->quiet) {
@@ -649,10 +662,11 @@ static int run_tests(const CliOptions *opts)
     }
 
     if (!opts->quiet) {
+        int threads = (opts->num_threads > 0) ? opts->num_threads
+                                              : gmrtest_recommended_threads();
         fprintf(stderr, "序列长度: %d 比特\n", n);
-        if (gmrtest_multithread_enabled()) {
-            fprintf(stderr, "执行模式: 多线程并行 (线程数=%d)\n",
-                    gmrtest_recommended_threads());
+        if (threads > 1) {
+            fprintf(stderr, "执行模式: 多线程并行 (线程数=%d)\n", threads);
         } else {
             fprintf(stderr, "执行模式: 单线程串行\n");
         }
