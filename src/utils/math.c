@@ -22,7 +22,11 @@ static const double PI = 3.14159265358979323846;
 static const double big = 4.503599627370496e15;
 static const double biginv = 2.22044604925031308085e-16;
 
-static int sgngam = 0;
+/* sgngam 为线程局部变量（C11 _Thread_local）：
+ * 多线程并行执行多个检测项时，各线程的 math_lgam 并发读写该标志，
+ * 若为普通全局变量会构成数据竞争（ThreadSanitizer 已确认）。
+ * 改为线程局部后每个线程拥有独立副本，消除竞争。 */
+static _Thread_local int sgngam = 0;
 
 /* ============================================================================
  * 辅助函数声明

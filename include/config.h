@@ -94,8 +94,9 @@
 #define TEST_ID_LINEAR_COMPLEXITY_M500_STR      "linear_complexity-m=500"
 #define TEST_ID_LINEAR_COMPLEXITY_M1000_STR     "linear_complexity-m=1000"
 
-/** 测试总数（27 项国密独立检测项 + 4 项 NIST 桩 = 31） */
-#define TEST_COUNT                      31
+/** 测试注册条目总数（23 项国密参数化条目 + 4 项 NIST 桩 = 27）
+ *  注: 国密 27 项独立检测由 23 个注册条目展开而来（poker 2 结果、serial 4 结果） */
+#define TEST_COUNT                      27
 
 /* ============================================================================
  * 默认参数配置
