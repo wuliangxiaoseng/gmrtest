@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <getopt.h>
+#include <dirent.h>
 #include "gmrtest.h"
 #include "thread_pool.h"
 
@@ -18,6 +20,7 @@
 
 static struct option long_options[] = {
     {"file",     required_argument, 0, 'f'},
+    {"dir",      required_argument, 0, 'd'},
     {"output",   required_argument, 0, 'o'},
     {"suite",    required_argument, 0, 's'},
     {"alpha",    required_argument, 0, 'a'},
@@ -31,7 +34,7 @@ static struct option long_options[] = {
     {0, 0, 0, 0}
 };
 
-static const char *short_options = "f:o:s:a:F:c:j:lhvq";
+static const char *short_options = "f:d:o:s:a:F:c:j:lhvq";
 
 /* ============================================================================
  * 输出格式枚举
@@ -58,7 +61,8 @@ typedef enum {
  * ============================================================================ */
 
 typedef struct {
-    const char *input_file;
+    char **input_files;     /* 输入文件列表（可多个） */
+    int input_count;        /* 输入文件数量 */
     const char *output_file;
     const char *config_file;
     double alpha;
@@ -214,6 +218,10 @@ static void print_test_list(FILE *fp);
 static int parse_options(int argc, char *argv[], CliOptions *opts);
 static int load_config_file(const char *filename, CliOptions *opts);
 static int run_tests(const CliOptions *opts);
+static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj);
+static int append_input_file(CliOptions *opts, const char *file);
+static int scan_dir(const char *dir, CliOptions *opts);
+static void free_input_files(CliOptions *opts);
 
 /* ============================================================================
  * 主函数
@@ -222,7 +230,8 @@ static int run_tests(const CliOptions *opts);
 int main(int argc, char *argv[])
 {
     CliOptions opts = {
-        .input_file = NULL,
+        .input_files = NULL,
+        .input_count = 0,
         .output_file = NULL,
         .config_file = NULL,
         .alpha = DEFAULT_ALPHA,
@@ -239,7 +248,7 @@ int main(int argc, char *argv[])
 
     /* 解析命令行参数（先处理 -c/--config） */
     if (parse_options(argc, argv, &opts) != 0) {
-        free((void *)opts.input_file);
+        free_input_files(&opts);
         free((void *)opts.output_file);
         return EXIT_FAILURE;
     }
@@ -276,8 +285,8 @@ int main(int argc, char *argv[])
     }
 
     /* 检查必需参数 */
-    if (opts.input_file == NULL) {
-        fprintf(stderr, "错误: 未指定输入文件\n");
+    if (opts.input_count == 0) {
+        fprintf(stderr, "错误: 未指定输入文件或目录\n");
         fprintf(stderr, "使用 '%s -h' 查看帮助信息\n", argv[0]);
         ret = EXIT_FAILURE;
         goto cleanup;
@@ -287,7 +296,7 @@ int main(int argc, char *argv[])
     ret = run_tests(&opts);
 
 cleanup:
-    free((void *)opts.input_file);
+    free_input_files(&opts);
     free((void *)opts.output_file);
     return ret;
 }
@@ -312,11 +321,12 @@ static void print_usage(const char *prog_name)
 {
     print_banner(stdout);
     printf("\n");
-    printf("用法: %s [选项] -f <输入文件>\n", prog_name);
+    printf("用法: %s [选项] (-f <输入文件> | -d <目录>)...\n", prog_name);
     printf("\n");
     printf("选项:\n");
-    printf("  -f, --file <文件>      输入文件路径（二进制格式）\n");
-    printf("  -o, --output <文件>    输出文件路径（默认输出到标准输出）\n");
+    printf("  -f, --file <文件>      输入文件路径（二进制格式，可重复指定多个）\n");
+    printf("  -d, --dir <目录>       扫描目录下所有 .bin 文件（可与 -f 混用）\n");
+    printf("  -o, --output <文件>    输出文件路径（批量时合并写入一个文件；默认输出到标准输出）\n");
     printf("  -s, --suite <名称>     测试套件: all(全部,默认), gm(国密27项), quick(快速子集)\n");
     printf("  -c, --config <文件>    配置文件路径\n");
     printf("  -a, --alpha <值>       显著性水平（默认 %.2f）\n", DEFAULT_ALPHA);
@@ -334,6 +344,8 @@ static void print_usage(const char *prog_name)
     printf("  %s -f random.bin -s gm -j 8         # 8线程并行运行国密标准测试\n", prog_name);
     printf("  %s -c config.ini                    # 使用配置文件（自定义组合）\n", prog_name);
     printf("  %s -c config.ini -o result.json     # 配置文件+输出文件\n", prog_name);
+    printf("  %s -f a.bin -f b.bin                # 批量检测多个文件\n", prog_name);
+    printf("  %s -d ./samples -F json -o r.json   # 批量检测目录下所有 .bin 文件\n", prog_name);
     printf("\n");
     printf("配置文件格式（INI格式）:\n");
     printf("  # gmrtest 配置文件\n");
@@ -438,10 +450,12 @@ static int parse_options(int argc, char *argv[], CliOptions *opts)
     while ((opt = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
         switch (opt) {
             case 'f':
-                free((void *)opts->input_file);
-                opts->input_file = strdup(optarg);
-                if (opts->input_file == NULL) {
-                    fprintf(stderr, "错误: 内存分配失败\n");
+                if (append_input_file(opts, optarg) != 0) {
+                    return -1;
+                }
+                break;
+            case 'd':
+                if (scan_dir(optarg, opts) != 0) {
                     return -1;
                 }
                 break;
@@ -623,11 +637,12 @@ static int load_config_file(const char *filename, CliOptions *opts)
 
             /* 解析全局配置项 */
             if (strcmp(key_start, "input_file") == 0) {
-                free((void *)opts->input_file);
-                opts->input_file = strdup(val_start);
-                if (opts->input_file == NULL) {
-                    fclose(fp);
-                    return -1;
+                /* 仅在命令行未指定任何 -f/-d 时，配置文件的 input_file 才生效 */
+                if (opts->input_count == 0) {
+                    if (append_input_file(opts, val_start) != 0) {
+                        fclose(fp);
+                        return -1;
+                    }
                 }
             } else if (strcmp(key_start, "output_file") == 0) {
                 free((void *)opts->output_file);
@@ -667,19 +682,233 @@ static int load_config_file(const char *filename, CliOptions *opts)
 }
 
 /**
+ * @brief 追加一个输入文件到列表
+ */
+static int append_input_file(CliOptions *opts, const char *file)
+{
+    char **new_files;
+    char *dup;
+
+    if (opts == NULL || file == NULL) {
+        return -1;
+    }
+
+    dup = strdup(file);
+    if (dup == NULL) {
+        fprintf(stderr, "错误: 内存分配失败\n");
+        return -1;
+    }
+
+    new_files = (char **)realloc(opts->input_files,
+                                 (size_t)(opts->input_count + 1) * sizeof(char *));
+    if (new_files == NULL) {
+        free(dup);
+        fprintf(stderr, "错误: 内存分配失败\n");
+        return -1;
+    }
+
+    opts->input_files = new_files;
+    opts->input_files[opts->input_count] = dup;
+    opts->input_count++;
+    return 0;
+}
+
+/**
+ * @brief 字符串比较（用于目录扫描排序）
+ */
+static int compare_str(const void *a, const void *b)
+{
+    const char *const *sa = (const char *const *)a;
+    const char *const *sb = (const char *const *)b;
+    return strcmp(*sa, *sb);
+}
+
+/**
+ * @brief 判断文件名是否以给定后缀结尾（大小写不敏感）
+ */
+static int has_suffix(const char *name, const char *suffix)
+{
+    size_t nl = strlen(name);
+    size_t sl = strlen(suffix);
+    if (nl < sl) {
+        return 0;
+    }
+    return strcasecmp(name + nl - sl, suffix) == 0;
+}
+
+/**
+ * @brief 扫描目录下所有 .bin/.dat 文件，按文件名排序后追加到输入列表
+ */
+static int scan_dir(const char *dir, CliOptions *opts)
+{
+    DIR *dp;
+    struct dirent *entry;
+    char **names = NULL;
+    int name_count = 0;
+    int capacity = 0;
+    int i, j;
+
+    if (dir == NULL || opts == NULL) {
+        return -1;
+    }
+
+    dp = opendir(dir);
+    if (dp == NULL) {
+        fprintf(stderr, "错误: 无法打开目录 '%s'\n", dir);
+        return -1;
+    }
+
+    while ((entry = readdir(dp)) != NULL) {
+        const char *name = entry->d_name;
+
+        if (!has_suffix(name, ".bin") && !has_suffix(name, ".dat")) {
+            continue;
+        }
+
+        if (name_count == capacity) {
+            int new_cap = (capacity == 0) ? 16 : capacity * 2;
+            char **tmp = (char **)realloc(names, (size_t)new_cap * sizeof(char *));
+            if (tmp == NULL) {
+                closedir(dp);
+                for (j = 0; j < name_count; j++) free(names[j]);
+                free(names);
+                fprintf(stderr, "错误: 内存分配失败\n");
+                return -1;
+            }
+            names = tmp;
+            capacity = new_cap;
+        }
+
+        names[name_count] = strdup(name);
+        if (names[name_count] == NULL) {
+            closedir(dp);
+            for (j = 0; j < name_count; j++) free(names[j]);
+            free(names);
+            fprintf(stderr, "错误: 内存分配失败\n");
+            return -1;
+        }
+        name_count++;
+    }
+    closedir(dp);
+
+    if (name_count == 0) {
+        fprintf(stderr, "错误: 目录 '%s' 下没有 .bin/.dat 文件\n", dir);
+        free(names);
+        return -1;
+    }
+
+    qsort(names, (size_t)name_count, sizeof(char *), compare_str);
+
+    for (i = 0; i < name_count; i++) {
+        size_t dir_len = strlen(dir);
+        int need_slash = (dir_len > 0 && dir[dir_len - 1] != '/');
+        size_t path_len = dir_len + (need_slash ? 1 : 0) + strlen(names[i]) + 1;
+        char *path = (char *)malloc(path_len);
+
+        if (path == NULL) {
+            for (j = i; j < name_count; j++) free(names[j]);
+            free(names);
+            fprintf(stderr, "错误: 内存分配失败\n");
+            return -1;
+        }
+
+        snprintf(path, path_len, "%s%s%s", dir, need_slash ? "/" : "", names[i]);
+        free(names[i]);
+
+        if (append_input_file(opts, path) != 0) {
+            free(path);
+            for (j = i + 1; j < name_count; j++) free(names[j]);
+            free(names);
+            return -1;
+        }
+        free(path);
+    }
+    free(names);
+
+    return 0;
+}
+
+/**
+ * @brief 释放输入文件列表
+ */
+static void free_input_files(CliOptions *opts)
+{
+    int i;
+
+    if (opts == NULL || opts->input_files == NULL) {
+        return;
+    }
+
+    for (i = 0; i < opts->input_count; i++) {
+        free(opts->input_files[i]);
+    }
+    free(opts->input_files);
+    opts->input_files = NULL;
+    opts->input_count = 0;
+}
+
+/**
  * @brief 运行测试
  */
 static int run_tests(const CliOptions *opts)
 {
+    FILE *out_fp = stdout;
+    int any_failed = 0;
+    int is_batch = (opts->input_count > 1);
+    int first_obj = 1;
+    int i;
+
+    /* 打开输出文件（批量时合并写入一个文件） */
+    if (opts->output_file != NULL) {
+        out_fp = fopen(opts->output_file, "w");
+        if (out_fp == NULL) {
+            fprintf(stderr, "错误: 无法打开输出文件 '%s'\n", opts->output_file);
+            return EXIT_FAILURE;
+        }
+    }
+
+    /* 批量 JSON 数组起始括号 */
+    if (opts->format == FORMAT_JSON && is_batch) {
+        fprintf(out_fp, "[\n");
+    }
+
+    /* 批量 CSV 只打印一次表头（含 filename 列） */
+    if (opts->format == FORMAT_CSV && is_batch) {
+        output_csv_header(out_fp, 1);
+    }
+
+    for (i = 0; i < opts->input_count; i++) {
+        if (run_one_file(opts, opts->input_files[i], out_fp, opts->input_count, &first_obj) != EXIT_SUCCESS) {
+            any_failed = 1;
+        }
+    }
+
+    /* 批量 JSON 数组结束括号 */
+    if (opts->format == FORMAT_JSON && is_batch) {
+        fprintf(out_fp, "\n]\n");
+    }
+
+    if (opts->output_file != NULL) {
+        fclose(out_fp);
+    }
+
+    return any_failed ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+/**
+ * @brief 对单个文件运行检测并输出结果
+ */
+static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj)
+{
     BitData *data = NULL;
     TestSummary summary;
     TestConfig config;
-    FILE *out_fp = stdout;
     int ret = EXIT_SUCCESS;
     const char **test_ids = NULL;
     int test_count = 0;
     const char *enabled_tests[50];
     int i;
+    int is_batch = (total_files > 1);
 
     /* 初始化配置 */
     gmrtest_default_config(&config);
@@ -688,12 +917,12 @@ static int run_tests(const CliOptions *opts)
 
     /* 读取输入文件 */
     if (!opts->quiet) {
-        fprintf(stderr, "读取文件: %s\n", opts->input_file);
+        fprintf(stderr, "读取文件: %s\n", file);
     }
 
-    int n = read_bits_from_file_alloc(opts->input_file, &data);
+    int n = read_bits_from_file_alloc(file, &data);
     if (n <= 0) {
-        fprintf(stderr, "错误: 无法读取文件 '%s'\n", opts->input_file);
+        fprintf(stderr, "错误: 无法读取文件 '%s'\n", file);
         return EXIT_FAILURE;
     }
 
@@ -764,33 +993,30 @@ static int run_tests(const CliOptions *opts)
         gmrtest_run_all(data, n, &summary, &config);
     }
 
-    /* 打开输出文件 */
-    if (opts->output_file != NULL) {
-        out_fp = fopen(opts->output_file, "w");
-        if (out_fp == NULL) {
-            fprintf(stderr, "错误: 无法打开输出文件 '%s'\n", opts->output_file);
-            ret = EXIT_FAILURE;
-            goto cleanup;
-        }
-    }
-
     /* 输出结果 */
     switch (opts->format) {
         case FORMAT_JSON:
-            output_json(out_fp, &summary, opts->input_file);
+            if (is_batch) {
+                if (!*first_obj) {
+                    fprintf(out_fp, ",\n");
+                }
+                output_json_object(out_fp, &summary, file);
+                *first_obj = 0;
+            } else {
+                output_json(out_fp, &summary, file);
+            }
             break;
         case FORMAT_CSV:
-            output_csv(out_fp, &summary);
+            if (is_batch) {
+                output_csv_rows(out_fp, &summary, file);
+            } else {
+                output_csv(out_fp, &summary, NULL);
+            }
             break;
         case FORMAT_TEXT:
         default:
-            output_text(out_fp, &summary);
+            output_text(out_fp, &summary, is_batch ? file : NULL);
             break;
-    }
-
-    /* 关闭输出文件 */
-    if (opts->output_file != NULL) {
-        fclose(out_fp);
     }
 
     /* 输出摘要 */
@@ -804,7 +1030,6 @@ static int run_tests(const CliOptions *opts)
         ret = EXIT_FAILURE;
     }
 
-cleanup:
     summary_free(&summary);
     free(data);
 

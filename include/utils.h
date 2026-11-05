@@ -98,7 +98,16 @@ void print_bits(const BitData *bits, int n, int max_print);
  * ============================================================================ */
 
 /**
- * @brief 将测试结果输出为JSON格式
+ * @brief 将单个文件的测试结果输出为单个JSON对象（结尾不含换行，供批量数组拼接）
+ * @param fp 输出文件指针
+ * @param summary 测试结果汇总
+ * @param filename 输入文件名
+ * @return 成功返回0，失败返回-1
+ */
+int output_json_object(FILE *fp, const TestSummary *summary, const char *filename);
+
+/**
+ * @brief 将测试结果输出为JSON格式（单文件模式，结尾补换行）
  * @param fp 输出文件指针
  * @param summary 测试结果汇总
  * @param filename 输入文件名
@@ -110,17 +119,34 @@ int output_json(FILE *fp, const TestSummary *summary, const char *filename);
  * @brief 将测试结果输出为文本格式
  * @param fp 输出文件指针
  * @param summary 测试结果汇总
+ * @param filename 输入文件名（非NULL时打印文件头）
  * @return 成功返回0，失败返回-1
  */
-int output_text(FILE *fp, const TestSummary *summary);
+int output_text(FILE *fp, const TestSummary *summary, const char *filename);
 
 /**
- * @brief 将测试结果输出为CSV格式
+ * @brief 输出CSV表头（批量模式一次性打印表头用）
+ * @param fp 输出文件指针
+ * @param has_filename 是否包含 filename 列
+ */
+void output_csv_header(FILE *fp, int has_filename);
+
+/**
+ * @brief 输出CSV数据行（不含表头）
  * @param fp 输出文件指针
  * @param summary 测试结果汇总
+ * @param filename 输入文件名（非 NULL 时作为首列）
+ */
+void output_csv_rows(FILE *fp, const TestSummary *summary, const char *filename);
+
+/**
+ * @brief 将测试结果输出为CSV格式（单文件模式：表头+数据）
+ * @param fp 输出文件指针
+ * @param summary 测试结果汇总
+ * @param filename 输入文件名（作为首列）
  * @return 成功返回0，失败返回-1
  */
-int output_csv(FILE *fp, const TestSummary *summary);
+int output_csv(FILE *fp, const TestSummary *summary, const char *filename);
 
 /* ============================================================================
  * 字符串处理

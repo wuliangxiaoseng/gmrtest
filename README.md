@@ -103,14 +103,27 @@ sudo make uninstall
 
 # CSV 格式输出
 ./bin/gmrtest -f random.bin -F csv -o result.csv
+
+# 批量检测多个文件（-f 可重复）
+./bin/gmrtest -f a.bin -f b.bin -f c.bin -s gm
+
+# 批量检测目录下所有 .bin 文件
+./bin/gmrtest -d ./samples -s gm
+
+# 批量输出合并到单个 JSON 文件（对象数组）
+./bin/gmrtest -d ./samples -F json -o report.json
+
+# 批量输出合并到单个 CSV 文件（带 filename 列）
+./bin/gmrtest -d ./samples -F csv -o report.csv
 ```
 
 ## 命令行选项
 
 | 选项 | 长选项 | 参数 | 说明 |
 |------|--------|------|------|
-| `-f` | `--file` | `<文件>` | 输入文件路径（二进制格式） |
-| `-o` | `--output` | `<文件>` | 输出文件路径（默认标准输出） |
+| `-f` | `--file` | `<文件>` | 输入文件路径（二进制格式，可重复指定多个） |
+| `-d` | `--dir` | `<目录>` | 扫描目录下所有 `.bin` 文件（可与 `-f` 混用） |
+| `-o` | `--output` | `<文件>` | 输出文件路径（批量时合并写入一个文件；默认标准输出） |
 | `-c` | `--config` | `<文件>` | 配置文件路径（INI 格式） |
 | `-s` | `--suite` | `<名称>` | 测试套件: `all`(全部,默认), `gm`(国密27项), `quick`(快速子集) |
 | `-a` | `--alpha` | `<值>` | 显著性水平（默认 0.01） |
@@ -261,7 +274,7 @@ int main(void)
     gmrtest_run_all(data, n, &summary, &config);
     
     /* 输出结果 */
-    output_text(stdout, &summary);
+    output_text(stdout, &summary, NULL);
     
     /* 清理 */
     summary_free(&summary);
@@ -278,6 +291,7 @@ int main(void)
 - [x] 双重判定（P_value/Q_value）支持
 - [x] 位压缩存储模式（BIT_PACKING=1）
 - [x] `--suite` 测试套件（all / gm / quick）
+- [x] 批量检测（`-f` 可重复、`-d/--dir` 目录扫描，text/json/csv 批量输出）
 - [ ] NIST 扩展项（non_overlapping_template / overlapping_template / random_excursions / random_excursions_variant）完整算法
 
 ## 参考资料

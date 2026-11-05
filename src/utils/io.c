@@ -255,9 +255,9 @@ void print_bits(const BitData *bits, int n, int max_print)
  * ============================================================================ */
 
 /**
- * @brief 将测试结果输出为JSON格式
+ * @brief 将单个文件的测试结果输出为单个JSON对象（结尾不含换行，供批量数组拼接）
  */
-int output_json(FILE *fp, const TestSummary *summary, const char *filename)
+int output_json_object(FILE *fp, const TestSummary *summary, const char *filename)
 {
     int i;
     time_t now;
@@ -302,9 +302,21 @@ int output_json(FILE *fp, const TestSummary *summary, const char *filename)
     fprintf(fp, "    \"overall_passed\": %s\n", 
             (summary->failed_tests == 0 && summary->error_tests == 0) ? "true" : "false");
     fprintf(fp, "  }\n");
-    fprintf(fp, "}\n");
+    fprintf(fp, "}");
     
     return 0;
+}
+
+/**
+ * @brief 将单个文件的测试结果输出为完整JSON文档（单文件模式，结尾补换行）
+ */
+int output_json(FILE *fp, const TestSummary *summary, const char *filename)
+{
+    int ret = output_json_object(fp, summary, filename);
+    if (ret == 0) {
+        fprintf(fp, "\n");
+    }
+    return ret;
 }
 
 /**
@@ -357,7 +369,7 @@ static void print_padded(FILE *fp, const char *s, int target_width)
     }
 }
 
-int output_text(FILE *fp, const TestSummary *summary)
+int output_text(FILE *fp, const TestSummary *summary, const char *filename)
 {
     int i;
     /* 列宽（按显示宽度计） */
@@ -373,7 +385,11 @@ int output_text(FILE *fp, const TestSummary *summary)
         return -1;
     }
 
-    fprintf(fp, "\n");
+    if (filename) {
+        fprintf(fp, "\n===== 文件: %s =====\n", filename);
+    } else {
+        fprintf(fp, "\n");
+    }
     fprintf(fp, "==========================================================================================\n");
     fprintf(fp, "                                  测试结果汇总                                            \n");
     fprintf(fp, "==========================================================================================\n");
@@ -436,17 +452,36 @@ int output_text(FILE *fp, const TestSummary *summary)
 }
 
 /**
- * @brief 将测试结果输出为CSV格式
+ * @brief 输出CSV表头
+ * @param fp           输出文件指针
+ * @param has_filename 是否包含 filename 列
  */
-int output_csv(FILE *fp, const TestSummary *summary)
+void output_csv_header(FILE *fp, int has_filename)
+{
+    if (fp == NULL) {
+        return;
+    }
+    
+    if (has_filename) {
+        fprintf(fp, "filename,test_id,test_name,p_value,q_value,stat_value,elapsed_ms,status\n");
+    } else {
+        fprintf(fp, "test_id,test_name,p_value,q_value,stat_value,elapsed_ms,status\n");
+    }
+}
+
+/**
+ * @brief 输出CSV数据行（不含表头）
+ * @param fp       输出文件指针
+ * @param summary  测试结果汇总
+ * @param filename 文件名（非 NULL 时每行首列输出）
+ */
+void output_csv_rows(FILE *fp, const TestSummary *summary, const char *filename)
 {
     int i;
     
     if (fp == NULL || summary == NULL) {
-        return -1;
+        return;
     }
-    
-    fprintf(fp, "test_id,test_name,p_value,q_value,stat_value,elapsed_ms,status\n");
     
     for (i = 0; i < summary->results_count; i++) {
         const TestResult *r = &summary->results[i];
@@ -459,15 +494,44 @@ int output_csv(FILE *fp, const TestSummary *summary)
             default:           status_str = "unknown"; break;
         }
         
-        fprintf(fp, "%s,%s,%.10f,%.10f,%.10f,%.3f,%s\n",
-                r->id ? r->id : "unknown",
-                r->name ? r->name : "unknown",
-                r->p_value,
-                r->q_value,
-                r->stat_value,
-                r->elapsed_ms,
-                status_str);
+        if (filename) {
+            fprintf(fp, "%s,%s,%s,%.10f,%.10f,%.10f,%.3f,%s\n",
+                    filename,
+                    r->id ? r->id : "unknown",
+                    r->name ? r->name : "unknown",
+                    r->p_value,
+                    r->q_value,
+                    r->stat_value,
+                    r->elapsed_ms,
+                    status_str);
+        } else {
+            fprintf(fp, "%s,%s,%.10f,%.10f,%.10f,%.3f,%s\n",
+                    r->id ? r->id : "unknown",
+                    r->name ? r->name : "unknown",
+                    r->p_value,
+                    r->q_value,
+                    r->stat_value,
+                    r->elapsed_ms,
+                    status_str);
+        }
     }
+}
+
+/**
+ * @brief 将测试结果输出为CSV格式（单文件模式：表头+数据）
+ * @param fp       输出文件指针
+ * @param summary  测试结果汇总
+ * @param filename 文件名（非 NULL 时输出 filename 列）
+ * @return 0 成功，-1 失败
+ */
+int output_csv(FILE *fp, const TestSummary *summary, const char *filename)
+{
+    if (fp == NULL || summary == NULL) {
+        return -1;
+    }
+    
+    output_csv_header(fp, filename != NULL);
+    output_csv_rows(fp, summary, filename);
     
     return 0;
 }
