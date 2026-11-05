@@ -131,6 +131,7 @@ typedef struct {
     double p_value;         /**< P值（一级检测：通过率判定） */
     double q_value;         /**< Q值（二级检测：均匀性判定，国密规范新增） */
     double stat_value;      /**< 统计量值 */
+    double elapsed_ms;      /**< 单检测项耗时（毫秒，墙钟时间） */
     TestStatus status;      /**< 测试状态 */
     const char *message;    /**< 附加消息（可选） */
 } TestResult;

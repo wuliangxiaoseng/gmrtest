@@ -30,12 +30,12 @@ GM/T 0005-2021 标准要求的全部 27 项检测项均已实现：
 | 8 | `runs_distribution` | 游程分布检测 |
 | 9-10 | `longest_run-m=10000,ones/zeros` | 块内最大游程检测 |
 | 11-12 | `binary_derivative-k=3/7` | 二元推导检测 |
-| 13-16 | `self_correlation-d=1/2/8/16` | 自相关检测 |
+| 13-16 | `autocorrelation-d=1/2/8/16` | 自相关检测 |
 | 17 | `rank` | 矩阵秩检测（32×32） |
 | 18-19 | `cumulative_sums-forward/backward` | 累加和检测 |
 | 20-21 | `approximate_entropy-m=2/5` | 近似熵检测 |
 | 22-23 | `linear_complexity-m=500/1000` | 线性复杂度检测 |
-| 24 | `maurer_universal` | Maurer 通用统计检测（L=7,Q=1280） |
+| 24 | `universal` | Maurer 通用统计检测（L=7,Q=1280） |
 | 25 | `dft` | 离散傅里叶变换检测 |
 
 > 注：序号 5/6 的 serial 检测项每项产生 2 个独立 P 值，故 25 个 ID 对应 27 项独立检测。
@@ -46,10 +46,7 @@ GM/T 0005-2021 标准要求的全部 27 项检测项均已实现：
 ### 构建
 
 ```bash
-# 克隆项目
-cd /root/dp_workspace/random/random1
-
-# 构建（单一版本，内置多线程支持，默认单线程运行）
+# 进入项目目录后构建（单一版本，内置多线程支持，默认单线程运行）
 make
 
 # 调试模式构建
@@ -83,17 +80,20 @@ sudo make uninstall
 # 运行所有测试（默认单线程）
 ./bin/gmrtest -f random.bin
 
-# 运行 GM/T 0005-2021 全部 27 项国密预设（默认单线程）
-./bin/gmrtest -f random.bin -g
+# 运行 GM/T 0005-2021 全部 27 项国密标准检测（默认单线程）
+./bin/gmrtest -f random.bin -s gm
 
-# 8 线程并行运行国密预设（线性复杂度/通用统计等慢项显著提速）
-./bin/gmrtest -f random.bin -g -j 8
+# 运行快速子集（排除矩阵秩/DFT/通用统计/线性复杂度等慢项，22 项）
+./bin/gmrtest -f random.bin -s quick
+
+# 8 线程并行运行国密标准检测（线性复杂度/通用统计等慢项显著提速）
+./bin/gmrtest -f random.bin -s gm -j 8
 
 # 自动线程数（读取环境变量 GMRTEST_THREADS，未设置则为单线程）
-./bin/gmrtest -f random.bin -g -j 0
+./bin/gmrtest -f random.bin -s gm -j 0
 
-# 运行指定测试
-./bin/gmrtest -f random.bin -t frequency,runs,block_frequency-m=10000
+# 自定义组合请使用配置文件（逐项 0/1 开关）
+./bin/gmrtest -f random.bin -c config.ini
 
 # 指定显著性水平
 ./bin/gmrtest -f random.bin -a 0.05
@@ -111,10 +111,11 @@ sudo make uninstall
 |------|--------|------|------|
 | `-f` | `--file` | `<文件>` | 输入文件路径（二进制格式） |
 | `-o` | `--output` | `<文件>` | 输出文件路径（默认标准输出） |
-| `-t` | `--tests` | `<列表>` | 指定要运行的测试（逗号分隔） |
+| `-c` | `--config` | `<文件>` | 配置文件路径（INI 格式） |
+| `-s` | `--suite` | `<名称>` | 测试套件: `all`(全部,默认), `gm`(国密27项), `quick`(快速子集) |
 | `-a` | `--alpha` | `<值>` | 显著性水平（默认 0.01） |
 | `-F` | `--format` | `<格式>` | 输出格式: text, json, csv |
-| `-j` | `--threads` | `<值>` | 并行线程数: 1=单线程(默认), N=并行, 0=自动(取环境变量 GMRTEST_THREADS) |
+| `-j` | `--threads` | `<值>` | 并行线程数: 0=自动(默认，读 GMRTEST_THREADS，未设置则单线程), N=并行 |
 | `-l` | `--list` | - | 列出所有可用测试 |
 | `-q` | `--quiet` | - | 静默模式 |
 | `-h` | `--help` | - | 显示帮助信息 |
@@ -143,15 +144,15 @@ dd if=/dev/urandom of=random.bin bs=1024 count=1024
                       测试结果汇总                              
 =================================================================
 
-测试名称                   p值          统计量       结果
+测试名称                  P值          Q值          统计量       结果
 -----------------------------------------------------------------
-单比特频数检测             0.789123     0.123456     通过
-块内频数检测               0.456789     12.345678    通过
+单比特频数检测             0.789123     0.394562     0.123456     通过
+块内频数检测               0.456789     0.456789     12.345678    通过
 ...
 -----------------------------------------------------------------
 
-总计: 19 项测试
-  通过: 18
+总计: 27 项测试
+  通过: 26
   失败: 1
   错误: 0
 
@@ -172,14 +173,16 @@ dd if=/dev/urandom of=random.bin bs=1024 count=1024
       "test": "frequency",
       "name": "单比特频数检测",
       "p_value": 0.789123,
+      "q_value": 0.394562,
       "stat_value": 0.123456,
       "passed": true
     }
   ],
   "summary": {
-    "total_tests": 19,
-    "passed_tests": 18,
+    "total_tests": 27,
+    "passed_tests": 26,
     "failed_tests": 1,
+    "error_tests": 0,
     "overall_passed": false
   }
 }
@@ -188,25 +191,44 @@ dd if=/dev/urandom of=random.bin bs=1024 count=1024
 ## 项目结构
 
 ```
-random1/
+gmrtest/
 ├── include/              # 头文件
-│   ├── gmrtest.h        # 主API头文件
+│   ├── gmrtest.h        # 主 API 头文件
 │   ├── types.h          # 类型定义
 │   ├── config.h         # 配置常量
 │   ├── tests.h          # 测试函数声明
-│   └── utils.h          # 工具函数声明
+│   ├── utils.h          # 工具函数声明
+│   ├── fft.h            # FFT 接口
+│   ├── matrix.h         # 矩阵（GF(2) 秩）接口
+│   └── thread_pool.h    # 线程池接口
 ├── src/                 # 源代码
 │   ├── main.c           # 命令行入口
-│   ├── gmrtest.c        # API实现
-│   ├── tests/           # 测试算法实现
+│   ├── gmrtest.c        # API 实现
+│   ├── tests/           # 测试算法实现（16 个检测）
 │   │   ├── frequency.c  # 单比特频数检测
-│   │   └── tests_stub.c # 其他测试桩
+│   │   ├── block_frequency.c
+│   │   ├── poker.c
+│   │   ├── serial.c
+│   │   ├── runs.c
+│   │   ├── runs_distribution.c
+│   │   ├── longest_run.c
+│   │   ├── binary_derivative.c
+│   │   ├── self_correlation.c
+│   │   ├── rank.c
+│   │   ├── cumulative_sums.c
+│   │   ├── approximate_entropy.c
+│   │   ├── linear_complexity.c
+│   │   ├── universal.c
+│   │   ├── dft.c
+│   │   └── tests_stub.c # NIST 扩展桩
 │   └── utils/           # 工具函数
-│       ├── math.c       # 数学函数
-│       └── io.c         # 输入输出
+│       ├── math.c       # 数学函数（erfc/igamc 等）
+│       ├── io.c         # 输入输出
+│       ├── matrix.c     # 矩阵运算
+│       ├── fft.c        # 快速傅里叶变换
+│       └── thread_pool.c # 线程池
 ├── docs/                # 文档
 ├── test/                # 测试数据
-├── examples/            # 示例
 ├── Makefile             # 构建脚本
 └── README.md            # 说明文档
 ```
@@ -220,7 +242,7 @@ gmrtest 也可以作为库使用：
 
 int main(void)
 {
-    BitSequence *data;
+    BitData *data;
     TestSummary summary;
     TestConfig config;
     int n;
@@ -255,14 +277,13 @@ int main(void)
 - [x] GM/T 0005-2021 全部 27 项独立检测项实现
 - [x] 双重判定（P_value/Q_value）支持
 - [x] 位压缩存储模式（BIT_PACKING=1）
-- [x] `-g` 一键运行国密预设
+- [x] `--suite` 测试套件（all / gm / quick）
 - [ ] NIST 扩展项（non_overlapping_template / overlapping_template / random_excursions / random_excursions_variant）完整算法
 
 ## 参考资料
 
 - NIST SP 800-22: A Statistical Test Suite for Random and Pseudorandom Number Generators
-- 国密随机数检测规范
-- [NIST_TESTS_ANALYSIS.md](NIST_TESTS_ANALYSIS.md) - 算法详细分析文档
+- GM/T 0005-2021 随机性检测规范
 
 ## 作者
 

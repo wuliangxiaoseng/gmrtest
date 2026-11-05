@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "gmrtest.h"
 #include "tests.h"
 #include "thread_pool.h"
@@ -29,17 +30,32 @@ typedef struct {
     const TestConfig *config;
 } GmrRunCtx;
 
+static double gmr_elapsed_ms(const struct timespec *t0, const struct timespec *t1)
+{
+    return (double)(t1->tv_sec - t0->tv_sec) * 1000.0
+         + (double)(t1->tv_nsec - t0->tv_nsec) / 1e6;
+}
+
 static void gmr_run_one_slot(void *arg, int task_index)
 {
     GmrRunCtx *ctx = (GmrRunCtx *)arg;
     GmrSlot   *slot = &ctx->slots[task_index];
     const TestItem *test = slot->test;
+    struct timespec t0, t1;
+    double ms;
+    int k;
 
     if (!slot->valid || test == NULL) return;
 
     if (test->multi_func != NULL) {
+        clock_gettime(CLOCK_MONOTONIC, &t0);
         int count = test->multi_func(ctx->data, ctx->n, slot->results, 4, ctx->config);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
         slot->count = count > 0 ? count : 0;
+        ms = gmr_elapsed_ms(&t0, &t1);
+        for (k = 0; k < slot->count; k++) {
+            slot->results[k].elapsed_ms = ms;
+        }
     } else {
         TestResult *r = &slot->results[0];
         r->id = test->id;
@@ -47,9 +63,13 @@ static void gmr_run_one_slot(void *arg, int task_index)
         r->p_value = 0.0;
         r->q_value = 0.0;
         r->stat_value = 0.0;
+        r->elapsed_ms = 0.0;
         r->status = TEST_ERROR;
         r->message = NULL;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
         TestStatus st = test->func(ctx->data, ctx->n, r, ctx->config);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        r->elapsed_ms = gmr_elapsed_ms(&t0, &t1);
         r->status = st;
         slot->count = 1;
     }

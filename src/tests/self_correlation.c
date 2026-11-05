@@ -80,7 +80,7 @@ TestStatus test_self_correlation(const BitData *data, int n,
     V = 2.0 * ((double)Ad - ((double)n_d / 2.0)) / sqrt((double)n_d);
 
     p_value = math_erfc(fabs(V) / sqrt2);
-    q_value = math_erfc(V / sqrt2);
+    q_value = math_erfc(V / sqrt2) / 2.0;
 
     result->id = id_for_d(d);
     result->name = name_for_d(d);

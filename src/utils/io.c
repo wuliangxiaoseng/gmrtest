@@ -92,8 +92,9 @@ int read_bits_from_file(const char *filename, BitData *bits, int max_bits)
         return -1;
     }
     
-    /* 计算需要读取的字节数（原始文件大小） */
-    byte_len = BITS_TO_BYTES(max_bits);
+    /* 需要读取的源字节数：每个源字节含 8 个比特，向上取整以覆盖
+     * max_bits 个比特。两种模式下 max_bits 均表示“比特数”。 */
+    byte_len = (max_bits + 7) >> 3;
     
 #if BIT_PACKING
     /* 位压缩模式：直接读取 */
@@ -121,7 +122,21 @@ int read_bits_from_file(const char *filename, BitData *bits, int max_bits)
         return -1;
     }
     
-    bit_len = bytes_to_bits(buffer, byte_len, bits);
+    /* 逐比特展开（MSB 优先），展开总数不超过 max_bits，避免末字节越界写 */
+    {
+        int i, j, rem;
+        bit_len = 0;
+        for (i = 0; i < byte_len && bit_len < max_bits; i++) {
+            rem = max_bits - bit_len;
+            if (rem > 8) {
+                rem = 8;
+            }
+            for (j = 0; j < rem; j++) {
+                bits[bit_len + j] = (buffer[i] >> (7 - j)) & 0x01;
+            }
+            bit_len += rem;
+        }
+    }
     free(buffer);
     
     return bit_len;
@@ -273,6 +288,7 @@ int output_json(FILE *fp, const TestSummary *summary, const char *filename)
         fprintf(fp, "      \"p_value\": %.10f,\n", r->p_value);
         fprintf(fp, "      \"q_value\": %.10f,\n", r->q_value);
         fprintf(fp, "      \"stat_value\": %.10f,\n", r->stat_value);
+        fprintf(fp, "      \"elapsed_ms\": %.3f,\n", r->elapsed_ms);
         fprintf(fp, "      \"passed\": %s\n", r->status == TEST_SUCCESS ? "true" : "false");
         fprintf(fp, "    }%s\n", i < summary->results_count - 1 ? "," : "");
     }
@@ -349,6 +365,7 @@ int output_text(FILE *fp, const TestSummary *summary)
     const int W_PVAL = 12;
     const int W_QVAL = 12;
     const int W_STAT = 16;
+    const int W_TIME = 12;
     const int W_RESULT = 6;
     char numbuf[64];
 
@@ -365,6 +382,7 @@ int output_text(FILE *fp, const TestSummary *summary)
     print_padded(fp, "P值",       W_PVAL);
     print_padded(fp, "Q值",       W_QVAL);
     print_padded(fp, "统计量",    W_STAT);
+    print_padded(fp, "耗时(ms)",  W_TIME);
     print_padded(fp, "结果",      W_RESULT);
     fprintf(fp, "\n");
     fprintf(fp, "------------------------------------------------------------------------------------------\n");
@@ -390,6 +408,9 @@ int output_text(FILE *fp, const TestSummary *summary)
 
         snprintf(numbuf, sizeof(numbuf), "%.6f", r->stat_value);
         print_padded(fp, numbuf, W_STAT);
+
+        snprintf(numbuf, sizeof(numbuf), "%.3fms", r->elapsed_ms);
+        print_padded(fp, numbuf, W_TIME);
 
         print_padded(fp, status_str, W_RESULT);
         fprintf(fp, "\n");
@@ -425,7 +446,7 @@ int output_csv(FILE *fp, const TestSummary *summary)
         return -1;
     }
     
-    fprintf(fp, "test_id,test_name,p_value,q_value,stat_value,status\n");
+    fprintf(fp, "test_id,test_name,p_value,q_value,stat_value,elapsed_ms,status\n");
     
     for (i = 0; i < summary->results_count; i++) {
         const TestResult *r = &summary->results[i];
@@ -438,12 +459,13 @@ int output_csv(FILE *fp, const TestSummary *summary)
             default:           status_str = "unknown"; break;
         }
         
-        fprintf(fp, "%s,%s,%.10f,%.10f,%.10f,%s\n",
+        fprintf(fp, "%s,%s,%.10f,%.10f,%.10f,%.3f,%s\n",
                 r->id ? r->id : "unknown",
                 r->name ? r->name : "unknown",
                 r->p_value,
                 r->q_value,
                 r->stat_value,
+                r->elapsed_ms,
                 status_str);
     }
     

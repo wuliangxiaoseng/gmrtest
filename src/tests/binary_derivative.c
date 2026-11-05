@@ -101,7 +101,7 @@ TestStatus test_binary_derivative(const BitData *data, int n,
     
     /* 计算p值和q值 */
     p_value = math_erfc(fabs(V_n) / sqrt(2.0));
-    q_value = math_erfc(V_n / sqrt(2.0));
+    q_value = math_erfc(V_n / sqrt(2.0)) / 2.0;
     
     /* 设置结果 */
     if (k == 3) {

@@ -56,7 +56,7 @@ TestStatus test_runs(const BitData *data, int n,
     p_value = math_erfc(numerator / denominator);
     
     /* 国密规范: 正态分布型检测，Q_value 使用原始值（不取绝对值） */
-    q_value = math_erfc((((double)V - 2.0 * (double)n * pi * (1.0 - pi))) / denominator);
+    q_value = math_erfc((((double)V - 2.0 * (double)n * pi * (1.0 - pi))) / denominator) / 2.0;
     
     /* 设置结果 */
     result->id = TEST_ID_RUNS_STR;

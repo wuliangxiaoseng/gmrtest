@@ -19,13 +19,11 @@
 static struct option long_options[] = {
     {"file",     required_argument, 0, 'f'},
     {"output",   required_argument, 0, 'o'},
-    {"tests",    required_argument, 0, 't'},
+    {"suite",    required_argument, 0, 's'},
     {"alpha",    required_argument, 0, 'a'},
     {"format",   required_argument, 0, 'F'},
     {"config",   required_argument, 0, 'c'},
     {"threads",  required_argument, 0, 'j'},
-    {"gm",       no_argument,       0, 'g'},
-    {"nist",     no_argument,       0, 'n'},
     {"list",     no_argument,       0, 'l'},
     {"help",     no_argument,       0, 'h'},
     {"version",  no_argument,       0, 'v'},
@@ -33,7 +31,7 @@ static struct option long_options[] = {
     {0, 0, 0, 0}
 };
 
-static const char *short_options = "f:o:t:a:F:c:j:gnlhvq";
+static const char *short_options = "f:o:s:a:F:c:j:lhvq";
 
 /* ============================================================================
  * 输出格式枚举
@@ -46,14 +44,14 @@ typedef enum {
 } OutputFormat;
 
 /* ============================================================================
- * 测试预设枚举
+ * 测试套件枚举
  * ============================================================================ */
 
 typedef enum {
-    PRESET_NONE = 0,
-    PRESET_GM,      /* 国密标准测试 */
-    PRESET_NIST     /* NIST标准测试 */
-} TestPreset;
+    SUITE_ALL = 0,    /* 全部已注册检测（默认） */
+    SUITE_GM,         /* 国密 GM/T 0005-2021 标准 27 项 */
+    SUITE_QUICK       /* 国密快速子集（排除慢检测） */
+} TestSuite;
 
 /* ============================================================================
  * 命令行参数结构
@@ -63,10 +61,9 @@ typedef struct {
     const char *input_file;
     const char *output_file;
     const char *config_file;
-    const char *test_list;
     double alpha;
     OutputFormat format;
-    TestPreset preset;
+    TestSuite suite;
     int num_threads;        /* 并行线程数: 1=单线程, N=并行, 0=自动(读环境变量,未设置则单线程) */
     int list_tests;
     int show_help;
@@ -182,36 +179,28 @@ static const char *gm_tests[] = {
     NULL
 };
 
-/* NIST标准测试（21项独立检测） */
-static const char *nist_tests[] = {
+/* 快速子集（国密项中排除计算重的检测：矩阵秩、离散傅立叶、通用统计、线性复杂度） */
+static const char *quick_tests[] = {
     "frequency",
     "block_frequency-m=10000",
-    "cumulative_sums-forward",
-    "cumulative_sums-backward",
-    "runs",
-    "longest_run-m=10000,ones",
-    "rank",
-    "dft",
-    "non_overlapping_template",
-    "overlapping_template",
-    "universal",
-    "approximate_entropy-m=2",
-    "approximate_entropy-m=5",
-    "random_excursions",
-    "random_excursions_variant",
-    "serial-m=3",
-    "serial-m=5",
-    "linear_complexity-m=500",
-    "linear_complexity-m=1000",
     "poker-m=4",
     "poker-m=8",
+    "serial-m=3",
+    "serial-m=5",
+    "runs",
     "runs_distribution",
+    "longest_run-m=10000,ones",
+    "longest_run-m=10000,zeros",
     "binary_derivative-k=3",
     "binary_derivative-k=7",
     "autocorrelation-d=1",
     "autocorrelation-d=2",
     "autocorrelation-d=8",
     "autocorrelation-d=16",
+    "cumulative_sums-forward",
+    "cumulative_sums-backward",
+    "approximate_entropy-m=2",
+    "approximate_entropy-m=5",
     NULL
 };
 
@@ -236,10 +225,9 @@ int main(int argc, char *argv[])
         .input_file = NULL,
         .output_file = NULL,
         .config_file = NULL,
-        .test_list = NULL,
         .alpha = DEFAULT_ALPHA,
         .format = FORMAT_TEXT,
-        .preset = PRESET_NONE,
+        .suite = SUITE_ALL,
         .num_threads = 0,       /* 默认未指定: 自动(读 GMRTEST_THREADS, 未设置则单线程) */
         .list_tests = 0,
         .show_help = 0,
@@ -247,8 +235,12 @@ int main(int argc, char *argv[])
         .quiet = 0
     };
 
+    int ret;
+
     /* 解析命令行参数（先处理 -c/--config） */
     if (parse_options(argc, argv, &opts) != 0) {
+        free((void *)opts.input_file);
+        free((void *)opts.output_file);
         return EXIT_FAILURE;
     }
 
@@ -265,30 +257,39 @@ int main(int argc, char *argv[])
     /* 显示帮助 */
     if (opts.show_help) {
         print_usage(argv[0]);
-        return EXIT_SUCCESS;
+        ret = EXIT_SUCCESS;
+        goto cleanup;
     }
 
     /* 显示版本 */
     if (opts.show_version) {
         print_banner(stdout);
-        return EXIT_SUCCESS;
+        ret = EXIT_SUCCESS;
+        goto cleanup;
     }
 
     /* 列出所有测试 */
     if (opts.list_tests) {
         print_test_list(stdout);
-        return EXIT_SUCCESS;
+        ret = EXIT_SUCCESS;
+        goto cleanup;
     }
 
     /* 检查必需参数 */
     if (opts.input_file == NULL) {
         fprintf(stderr, "错误: 未指定输入文件\n");
         fprintf(stderr, "使用 '%s -h' 查看帮助信息\n", argv[0]);
-        return EXIT_FAILURE;
+        ret = EXIT_FAILURE;
+        goto cleanup;
     }
 
     /* 运行测试 */
-    return run_tests(&opts);
+    ret = run_tests(&opts);
+
+cleanup:
+    free((void *)opts.input_file);
+    free((void *)opts.output_file);
+    return ret;
 }
 
 /* ============================================================================
@@ -316,23 +317,22 @@ static void print_usage(const char *prog_name)
     printf("选项:\n");
     printf("  -f, --file <文件>      输入文件路径（二进制格式）\n");
     printf("  -o, --output <文件>    输出文件路径（默认输出到标准输出）\n");
+    printf("  -s, --suite <名称>     测试套件: all(全部,默认), gm(国密27项), quick(快速子集)\n");
     printf("  -c, --config <文件>    配置文件路径\n");
-    printf("  -g, --gm               运行国密标准测试（10项）\n");
-    printf("  -n, --nist             运行NIST标准测试（21项）\n");
     printf("  -a, --alpha <值>       显著性水平（默认 %.2f）\n", DEFAULT_ALPHA);
     printf("  -F, --format <格式>    输出格式: text, json, csv（默认 text）\n");
-    printf("  -j, --threads <值>     并行线程数: 1=单线程(默认), N=并行, 0=自动\n");
+    printf("  -j, --threads <值>     并行线程数: 0=自动(默认，读 GMRTEST_THREADS，未设置则单线程), N=并行\n");
     printf("  -l, --list             列出所有可用测试\n");
     printf("  -q, --quiet            静默模式，只输出结果\n");
     printf("  -h, --help             显示帮助信息\n");
     printf("  -v, --version          显示版本信息\n");
     printf("\n");
     printf("示例:\n");
-    printf("  %s -f random.bin                    # 运行所有测试（单线程）\n", prog_name);
-    printf("  %s -f random.bin -g                 # 运行国密标准测试\n", prog_name);
-    printf("  %s -f random.bin -g -j 8            # 8线程并行运行国密标准测试\n", prog_name);
-    printf("  %s -f random.bin -n                 # 运行NIST标准测试\n", prog_name);
-    printf("  %s -c config.ini                    # 使用配置文件\n", prog_name);
+    printf("  %s -f random.bin                    # 运行所有测试（= --suite all）\n", prog_name);
+    printf("  %s -f random.bin -s gm              # 运行国密标准测试（27项）\n", prog_name);
+    printf("  %s -f random.bin -s quick           # 运行快速子集（排除慢检测）\n", prog_name);
+    printf("  %s -f random.bin -s gm -j 8         # 8线程并行运行国密标准测试\n", prog_name);
+    printf("  %s -c config.ini                    # 使用配置文件（自定义组合）\n", prog_name);
     printf("  %s -c config.ini -o result.json     # 配置文件+输出文件\n", prog_name);
     printf("\n");
     printf("配置文件格式（INI格式）:\n");
@@ -352,7 +352,7 @@ static void print_usage(const char *prog_name)
     printf("  serial_m3_p2 = 1\n");
     printf("  # ... 其他测试项\n");
     printf("\n");
-    printf("支持的所有测试项（共24项）:\n");
+    printf("支持的所有测试项（共29项）:\n");
     printf("  基础测试:\n");
     printf("    frequency              单比特频数检测\n");
     printf("    block_frequency       块内频数检测\n");
@@ -438,16 +438,35 @@ static int parse_options(int argc, char *argv[], CliOptions *opts)
     while ((opt = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
         switch (opt) {
             case 'f':
-                opts->input_file = optarg;
+                free((void *)opts->input_file);
+                opts->input_file = strdup(optarg);
+                if (opts->input_file == NULL) {
+                    fprintf(stderr, "错误: 内存分配失败\n");
+                    return -1;
+                }
                 break;
             case 'o':
-                opts->output_file = optarg;
+                free((void *)opts->output_file);
+                opts->output_file = strdup(optarg);
+                if (opts->output_file == NULL) {
+                    fprintf(stderr, "错误: 内存分配失败\n");
+                    return -1;
+                }
                 break;
             case 'c':
                 opts->config_file = optarg;
                 break;
-            case 't':
-                opts->test_list = optarg;
+            case 's':
+                if (strcmp(optarg, "all") == 0) {
+                    opts->suite = SUITE_ALL;
+                } else if (strcmp(optarg, "gm") == 0) {
+                    opts->suite = SUITE_GM;
+                } else if (strcmp(optarg, "quick") == 0) {
+                    opts->suite = SUITE_QUICK;
+                } else {
+                    fprintf(stderr, "错误: 未知的测试套件 '%s'（可用: all, gm, quick）\n", optarg);
+                    return -1;
+                }
                 break;
             case 'j':
                 opts->num_threads = atoi(optarg);
@@ -455,12 +474,6 @@ static int parse_options(int argc, char *argv[], CliOptions *opts)
                     fprintf(stderr, "错误: 线程数不能为负数\n");
                     return -1;
                 }
-                break;
-            case 'g':
-                opts->preset = PRESET_GM;
-                break;
-            case 'n':
-                opts->preset = PRESET_NIST;
                 break;
             case 'a':
                 opts->alpha = atof(optarg);
@@ -551,9 +564,22 @@ static int load_config_file(const char *filename, CliOptions *opts)
             }
         }
 
-        /* 检查节头 */
+        /* 检查节头：精确匹配 [gmrtest]（容忍节名两侧空白） */
         if (line[0] == '[') {
-            in_section = (strstr(line, "gmrtest") != NULL);
+            char *close = strchr(line, ']');
+            in_section = 0;
+            if (close != NULL) {
+                char *sec;
+                size_t slen;
+                *close = '\0';
+                sec = line + 1;
+                while (*sec == ' ' || *sec == '\t') sec++;
+                slen = strlen(sec);
+                while (slen > 0 && (sec[slen - 1] == ' ' || sec[slen - 1] == '\t')) {
+                    sec[--slen] = '\0';
+                }
+                in_section = (strcmp(sec, "gmrtest") == 0);
+            }
             continue;
         }
 
@@ -597,9 +623,19 @@ static int load_config_file(const char *filename, CliOptions *opts)
 
             /* 解析全局配置项 */
             if (strcmp(key_start, "input_file") == 0) {
+                free((void *)opts->input_file);
                 opts->input_file = strdup(val_start);
+                if (opts->input_file == NULL) {
+                    fclose(fp);
+                    return -1;
+                }
             } else if (strcmp(key_start, "output_file") == 0) {
+                free((void *)opts->output_file);
                 opts->output_file = strdup(val_start);
+                if (opts->output_file == NULL) {
+                    fclose(fp);
+                    return -1;
+                }
             } else if (strcmp(key_start, "alpha") == 0) {
                 opts->alpha = atof(val_start);
             } else if (strcmp(key_start, "format") == 0) {
@@ -661,6 +697,9 @@ static int run_tests(const CliOptions *opts)
         return EXIT_FAILURE;
     }
 
+    /* 回填实际序列长度到配置（此前 config.n 恒为 0） */
+    config.n = n;
+
     if (!opts->quiet) {
         int threads = (opts->num_threads > 0) ? opts->num_threads
                                               : gmrtest_recommended_threads();
@@ -694,15 +733,15 @@ static int run_tests(const CliOptions *opts)
         if (!opts->quiet) {
             fprintf(stderr, "运行配置文件中的 %d 项测试...\n", test_count);
         }
-    } else if (opts->preset == PRESET_GM) {
+    } else if (opts->suite == SUITE_GM) {
         test_ids = gm_tests;
         if (!opts->quiet) {
             fprintf(stderr, "运行国密标准测试（27项）...\n");
         }
-    } else if (opts->preset == PRESET_NIST) {
-        test_ids = nist_tests;
+    } else if (opts->suite == SUITE_QUICK) {
+        test_ids = quick_tests;
         if (!opts->quiet) {
-            fprintf(stderr, "运行NIST标准测试（28项）...\n");
+            fprintf(stderr, "运行快速子集（排除慢检测）...\n");
         }
     } else {
         test_ids = NULL;

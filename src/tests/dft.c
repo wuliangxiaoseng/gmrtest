@@ -80,7 +80,7 @@ TestStatus test_dft(const BitData *data, int n,
     d = (N_l - N_o) / sqrt((double)eff_n / 4.0 * 0.95 * 0.05);
 
     p_value = math_erfc(fabs(d) / sqrt2);
-    q_value = math_erfc(d / sqrt2);
+    q_value = math_erfc(d / sqrt2) / 2.0;
 
     free(re);
     free(im);

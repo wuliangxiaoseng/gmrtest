@@ -296,7 +296,7 @@ double math_erf(double x)
         term *= xsqr / j;
         sum += term / (2 * j + 1);
         j++;
-    } while (fabs(term) / sum > MACHEP);
+    } while (fabs(term) / fabs(sum) > MACHEP);
 
     return two_sqrtpi * sum;
 }

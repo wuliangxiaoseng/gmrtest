@@ -27,13 +27,13 @@ TestStatus test_frequency(const BitData *data, int n,
     
     /* 国密规范 GM/T 0005-2021:
      * P_value = erfc(|V| / √2)  用于一级检测（通过率）
-     * Q_value = erfc(V / √2)   用于二级检测（均匀性），不取绝对值
+     * Q_value = erfc(V / √2) / 2   用于二级检测（均匀性），不取绝对值
      */
     v_obs = sum / sqrt((double)n);      /* 原始值，不取绝对值 */
     s_obs = fabs(v_obs);                 /* 取绝对值 */
     
     p_value = math_erfc(s_obs / sqrt2);  /* 一级检测 P值 */
-    q_value = math_erfc(v_obs / sqrt2);  /* 二级检测 Q值 */
+    q_value = math_erfc(v_obs / sqrt2) / 2.0;  /* 二级检测 Q值 */
     
     result->id = TEST_ID_FREQUENCY_STR;
     result->name = "单比特频数检测";

@@ -23,73 +23,75 @@ static int serial_single(const BitData *data, int n, int m, int base_idx,
                         TestResult *result1, TestResult *result2,
                         const TestConfig *config)
 {
-    int i, j, N, M;
-    double *C, *C1, psi_sq_m, psi_sq_m1, delta1, delta2;
+    int i, j, M, M1, M2;
+    double *C, *C1, *C2, psi_sq_m, psi_sq_m1, psi_sq_m2, delta1, delta2;
     double p_value1, p_value2, q_value1, q_value2;
-    int bit_pos;
     
     if (data == NULL || result1 == NULL || result2 == NULL || n <= 0) {
         return -1;
     }
     
-    M = 1 << m;      /* 2^m */
-    N = n - m + 1;   /* 重叠块数量 */
+    M = 1 << m;        /* 2^m */
+    M1 = 1 << (m - 1); /* 2^(m-1) */
+    M2 = 1 << (m - 2); /* 2^(m-2) */
     
-    if (N < M || m <= 0) {
+    if (n < M || m < 2) {
         return -1;
     }
     
-    C = (double *)calloc(M, sizeof(double));
-    C1 = (double *)calloc(M, sizeof(double));
-    if (C == NULL || C1 == NULL) {
+    C  = (double *)calloc(M,  sizeof(double));
+    C1 = (double *)calloc(M1, sizeof(double));
+    C2 = (double *)calloc(M2, sizeof(double));
+    if (C == NULL || C1 == NULL || C2 == NULL) {
         free(C);
         free(C1);
+        free(C2);
         return -1;
     }
     
-    /* 统计 m 位模式和 m-1 位模式的频数 */
-    for (i = 0; i < N; i++) {
+    /* 统计 m / m-1 / m-2 位重叠模式频数（环形拼接，共 n 个重叠子序列） */
+    for (i = 0; i < n; i++) {
         uint32_t pattern_m = 0;
-        uint32_t pattern_m1 = 0;
-        bit_pos = i;
         
         for (j = 0; j < m; j++) {
-            pattern_m = (pattern_m << 1) | GET_BIT(data, bit_pos + j);
+            pattern_m = (pattern_m << 1) | GET_BIT(data, (i + j) % n);
         }
-        pattern_m1 = pattern_m >> 1;
         
         C[pattern_m]++;
-        
-        if (i < N - 1) {
-            C1[pattern_m1]++;
-        }
+        C1[pattern_m >> 1]++;
+        C2[pattern_m >> 2]++;
     }
     
-    /* 计算 ψ²(m) */
+    /* 计算 ψ²(m)、ψ²(m-1)、ψ²(m-2)，均除以 n */
     psi_sq_m = 0.0;
     for (i = 0; i < M; i++) {
         psi_sq_m += C[i] * C[i];
     }
-    psi_sq_m = (M * psi_sq_m) / (double)N - (double)N;
+    psi_sq_m = ((double)M / n) * psi_sq_m - (double)n;
     
-    /* 计算 ψ²(m+1) */
     psi_sq_m1 = 0.0;
-    for (i = 0; i < (M >> 1); i++) {
+    for (i = 0; i < M1; i++) {
         psi_sq_m1 += C1[i] * C1[i];
     }
-    psi_sq_m1 = ((M >> 1) * psi_sq_m1) / (double)(N - 1) - (double)(N - 1);
+    psi_sq_m1 = ((double)M1 / n) * psi_sq_m1 - (double)n;
     
-    /* 计算 Δψ² */
+    psi_sq_m2 = 0.0;
+    for (i = 0; i < M2; i++) {
+        psi_sq_m2 += C2[i] * C2[i];
+    }
+    psi_sq_m2 = ((double)M2 / n) * psi_sq_m2 - (double)n;
+    
+    /* 计算 ∇ψ²(m) 和 ∇²ψ²(m) */
     delta1 = psi_sq_m - psi_sq_m1;
-    delta2 = psi_sq_m1;
+    delta2 = psi_sq_m - 2.0 * psi_sq_m1 + psi_sq_m2;
     
     /* 确保 delta 为非负数 */
     if (delta1 < 0.0) delta1 = 0.0;
     if (delta2 < 0.0) delta2 = 0.0;
     
-    /* 计算 p_values */
-    p_value1 = math_igamc((double)(M >> 1) / 2.0, delta1 / 2.0);
-    p_value2 = math_igamc((double)(M >> 1) / 2.0, delta2 / 2.0);
+    /* 计算 p_values：P1=igamc(2^(m-2), ∇ψ²/2)，P2=igamc(2^(m-3), ∇²ψ²/2) */
+    p_value1 = math_igamc((double)M / 4.0, delta1 / 2.0);
+    p_value2 = math_igamc((double)M / 8.0, delta2 / 2.0);
     
     /* 国密规范: 卡方分布型检测 Q_value = P_value */
     q_value1 = p_value1;
@@ -97,6 +99,7 @@ static int serial_single(const BitData *data, int n, int m, int base_idx,
     
     free(C);
     free(C1);
+    free(C2);
     
     /* 设置结果 */
     snprintf(serial_id_buf[base_idx], sizeof(serial_id_buf[base_idx]), "serial_m%d_p1", m);

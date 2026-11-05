@@ -89,7 +89,7 @@ TestStatus test_universal(const BitData *data, int n,
 
     arg = fabs(phi - UNIVERSAL_EXPECTED[L]) / (sqrt2 * sigma);
     p_value = math_erfc(arg);
-    q_value = math_erfc((phi - UNIVERSAL_EXPECTED[L]) / (sqrt2 * sigma));
+    q_value = math_erfc((phi - UNIVERSAL_EXPECTED[L]) / (sqrt2 * sigma)) / 2.0;
 
     free(T);
 
