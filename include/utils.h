@@ -148,6 +148,13 @@ void output_csv_rows(FILE *fp, const TestSummary *summary, const char *filename)
  */
 int output_csv(FILE *fp, const TestSummary *summary, const char *filename);
 
+/**
+ * @brief 输出批量检测统计汇总（文本格式，检测结束时打印）
+ * @param fp 输出文件指针
+ * @param agg 批量聚合结果
+ */
+void output_batch_summary(FILE *fp, const BatchAggregate *agg);
+
 /* ============================================================================
  * 字符串处理
  * ============================================================================ */

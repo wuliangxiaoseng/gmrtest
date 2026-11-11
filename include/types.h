@@ -193,6 +193,29 @@ typedef struct {
 
 #define MAX_RESULTS                     64  /**< 最大测试结果数量 */
 
+/* ============================================================================
+ * 批量检测聚合结构
+ * ============================================================================ */
+
+/**
+ * @brief 批量检测单项聚合（跨文件统计）
+ */
+typedef struct {
+    const char *name;       /**< 测试项名称（指向静态字符串） */
+    const char *id;         /**< 测试ID */
+    int passed;             /**< 通过该检测项的文件数 */
+    int total;              /**< 运行该检测项的文件总数 */
+} BatchItem;
+
+/**
+ * @brief 批量检测聚合结果
+ */
+typedef struct {
+    BatchItem items[MAX_RESULTS];  /**< 各测试项聚合 */
+    int count;                     /**< 测试项数量 */
+    int files_processed;           /**< 成功完成检测的文件数 */
+} BatchAggregate;
+
 #define GMRTEST_VERSION_MAJOR 1
 #define GMRTEST_VERSION_MINOR 0
 #define GMRTEST_VERSION_PATCH 0

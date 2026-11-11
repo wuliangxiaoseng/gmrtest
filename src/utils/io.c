@@ -536,6 +536,54 @@ int output_csv(FILE *fp, const TestSummary *summary, const char *filename)
     return 0;
 }
 
+/**
+ * @brief 输出批量检测统计汇总（文本格式，检测结束时打印）
+ * @param fp 输出文件指针
+ * @param agg 批量聚合结果
+ */
+void output_batch_summary(FILE *fp, const BatchAggregate *agg)
+{
+    int i;
+    int all_passed = 1;
+    char buf[64];
+    const int W_NAME = 32;   /* 测试项列宽（显示宽度） */
+    const int W_RATE = 30;   /* 通过的样本数（概率）列宽 */
+
+    if (fp == NULL || agg == NULL || agg->count <= 0) {
+        return;
+    }
+
+    fprintf(fp, "\n");
+    fprintf(fp, "批量检测统计结果如下：（阈值下限百分比：%d%%，样本数：%d）\n",
+            BATCH_PASS_RATE_PERCENT, agg->files_processed);
+    fprintf(fp, "----------------------------------------------------------------------------------------------------\n");
+    print_padded(fp, "测试项", W_NAME);
+    print_padded(fp, "通过的样本数（概率）", W_RATE);
+    fprintf(fp, "单项测试结果\n");
+    fprintf(fp, "----------------------------------------------------------------------------------------------------\n");
+
+    for (i = 0; i < agg->count; i++) {
+        const BatchItem *item = &agg->items[i];
+        /* 单项通过率 >= 99% 视为通过（整数运算避免浮点误差） */
+        int passed = (item->total > 0)
+                  && ((long long)item->passed * 100 >= (long long)item->total * BATCH_PASS_RATE_PERCENT);
+        double rate = (item->total > 0) ? (100.0 * item->passed / item->total) : 0.0;
+
+        if (!passed) {
+            all_passed = 0;
+        }
+
+        print_padded(fp, item->name ? item->name : "unknown", W_NAME);
+        snprintf(buf, sizeof(buf), "%d (%.6f%%)", item->passed, rate);
+        print_padded(fp, buf, W_RATE);
+        fprintf(fp, "%s\n", passed ? "通过" : "不通过");
+    }
+
+    fprintf(fp, "----------------------------------------------------------------------------------------------------\n");
+    fprintf(fp, "检测结论：%s\n", all_passed ? "通过" : "不通过");
+    fprintf(fp, "----------------------------------------------------------------------------------------------------\n");
+}
+
 /* ============================================================================
  * 内存管理
  * ============================================================================ */

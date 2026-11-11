@@ -218,10 +218,11 @@ static void print_test_list(FILE *fp);
 static int parse_options(int argc, char *argv[], CliOptions *opts);
 static int load_config_file(const char *filename, CliOptions *opts);
 static int run_tests(const CliOptions *opts);
-static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj);
+static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj, BatchAggregate *agg);
 static int append_input_file(CliOptions *opts, const char *file);
 static int scan_dir(const char *dir, CliOptions *opts);
 static void free_input_files(CliOptions *opts);
+static void agg_update(BatchAggregate *agg, const TestSummary *summary);
 
 /* ============================================================================
  * 主函数
@@ -848,6 +849,41 @@ static void free_input_files(CliOptions *opts)
 }
 
 /**
+ * @brief 将单个文件的检测结果累加到批量聚合
+ */
+static void agg_update(BatchAggregate *agg, const TestSummary *summary)
+{
+    int i;
+
+    if (agg == NULL || summary == NULL) {
+        return;
+    }
+
+    /* 首次成功文件：用其结果初始化各测试项的名称/ID */
+    if (agg->count == 0) {
+        for (i = 0; i < summary->results_count && i < MAX_RESULTS; i++) {
+            agg->items[i].name = summary->results[i].name;
+            agg->items[i].id = summary->results[i].id;
+            agg->items[i].passed = 0;
+            agg->items[i].total = 0;
+        }
+        agg->count = summary->results_count;
+        if (agg->count > MAX_RESULTS) {
+            agg->count = MAX_RESULTS;
+        }
+    }
+
+    for (i = 0; i < summary->results_count && i < agg->count; i++) {
+        agg->items[i].total++;
+        if (summary->results[i].status == TEST_SUCCESS) {
+            agg->items[i].passed++;
+        }
+    }
+
+    agg->files_processed++;
+}
+
+/**
  * @brief 运行测试
  */
 static int run_tests(const CliOptions *opts)
@@ -857,6 +893,9 @@ static int run_tests(const CliOptions *opts)
     int is_batch = (opts->input_count > 1);
     int first_obj = 1;
     int i;
+    BatchAggregate agg;
+
+    memset(&agg, 0, sizeof(agg));
 
     /* 打开输出文件（批量时合并写入一个文件） */
     if (opts->output_file != NULL) {
@@ -878,7 +917,7 @@ static int run_tests(const CliOptions *opts)
     }
 
     for (i = 0; i < opts->input_count; i++) {
-        if (run_one_file(opts, opts->input_files[i], out_fp, opts->input_count, &first_obj) != EXIT_SUCCESS) {
+        if (run_one_file(opts, opts->input_files[i], out_fp, opts->input_count, &first_obj, &agg) != EXIT_SUCCESS) {
             any_failed = 1;
         }
     }
@@ -886,6 +925,11 @@ static int run_tests(const CliOptions *opts)
     /* 批量 JSON 数组结束括号 */
     if (opts->format == FORMAT_JSON && is_batch) {
         fprintf(out_fp, "\n]\n");
+    }
+
+    /* 批量检测统计汇总（文本格式，检测结束时展示） */
+    if (opts->format == FORMAT_TEXT && is_batch) {
+        output_batch_summary(out_fp, &agg);
     }
 
     if (opts->output_file != NULL) {
@@ -898,7 +942,7 @@ static int run_tests(const CliOptions *opts)
 /**
  * @brief 对单个文件运行检测并输出结果
  */
-static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj)
+static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, int total_files, int *first_obj, BatchAggregate *agg)
 {
     BitData *data = NULL;
     TestSummary summary;
@@ -991,6 +1035,11 @@ static int run_one_file(const CliOptions *opts, const char *file, FILE *out_fp, 
     } else {
         /* 运行所有测试 */
         gmrtest_run_all(data, n, &summary, &config);
+    }
+
+    /* 更新批量聚合（成功运行的每个文件都计入） */
+    if (is_batch && agg != NULL) {
+        agg_update(agg, &summary);
     }
 
     /* 输出结果 */

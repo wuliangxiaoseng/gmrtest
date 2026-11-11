@@ -17,6 +17,9 @@
 /** 默认显著性水平 (国密规范推荐值) */
 #define DEFAULT_ALPHA           0.01
 
+/** 批量检测单项通过率下限（百分比），批量汇总判定用 */
+#define BATCH_PASS_RATE_PERCENT 99
+
 /** 显著性水平范围检查 */
 #define ALPHA_MIN               0.0
 #define ALPHA_MAX               1.0
